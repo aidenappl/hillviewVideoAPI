@@ -1,0 +1,79 @@
+name: Backend
+
+on: [push]
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.16
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          cd $GITHUB_WORKSPACE
+          go build -o bin/output ./*.go
+  deploy-prod:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build
+    if: endsWith(github.ref, 'heads/main')
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set image tag
+        run: |
+          echo "IMAGE_SHA=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
+
+      - name: Set environment variables
+        uses: iamtheyammer/branch-env-vars@v1.0.3
+        with:
+          IMAGE_TAG: ${{ secrets.NAME }}:${{ env.IMAGE_SHA }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE_NAME: ${{ secrets.ECS_SERVICE_NAME }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push container to ECR
+        run: |
+          cd $GITHUB_WORKSPACE
+          docker build -t ${ECR_REPOSITORY}:${IMAGE_SHA} .
+          docker push ${ECR_REPOSITORY}:${IMAGE_SHA}
+
+          echo "IMAGE=${ECR_REPOSITORY}:${IMAGE_SHA}" >> $GITHUB_ENV
+
+      - name: Render new ECS task definition
+        id: render-ecs-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+
+          task-definition: container_definitions/${{ secrets.NAME }}.json
+          container-name: hillviewtv-video-service
+          image: ${{ env.IMAGE }}
+
+      - name: Update ECS service task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-ecs-task-definition.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_NAME }}
+          cluster: ${{ env.ECS_CLUSTER }}
