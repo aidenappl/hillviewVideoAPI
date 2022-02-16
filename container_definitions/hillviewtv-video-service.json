@@ -60,6 +60,18 @@
           {
             "valueFrom": "/env/hillviewtv-video-service/AWS_ACCESS_KEY_ID",
             "name": "AWS_ACCESS_KEY_ID"
+          },
+          {
+            "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_UID",
+            "name": "CLOUDFLARE_UID"
+          },
+          {
+            "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_KEY",
+            "name": "CLOUDFLARE_KEY"
+          },
+          {
+            "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_EMAIL",
+            "name": "CLOUDFLARE_EMAIL"
           }
         ],
         "dockerSecurityOptions": null,
