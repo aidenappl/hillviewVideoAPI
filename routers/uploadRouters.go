@@ -152,7 +152,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.Success == false {
+	if !body.Success {
 		http.Error(w, body.Errors[0].(string), http.StatusInternalServerError)
 		return
 	}
