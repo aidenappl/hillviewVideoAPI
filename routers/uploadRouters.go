@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -86,6 +87,7 @@ type CloudflareResponse struct {
 
 type CloudflareRequest struct {
 	URL                   string  `json:"url"`
+	Name                  string  `json:"name"`
 	ThumbnailTimestampPct float64 `json:"thumbnailTimestampPct"`
 }
 
@@ -128,8 +130,10 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	postBody, _ := json.Marshal(map[string]string{
-		"url": "https://content.hillview.tv/videos/uploads/" + generated,
+	postBody, _ := json.Marshal(CloudflareRequest{
+		URL:                   "https://content.hillview.tv/videos/uploads/" + generated,
+		Name:                  strings.TrimSuffix(generated, ".mp4"),
+		ThumbnailTimestampPct: 0.5,
 	})
 	responseBody := bytes.NewBuffer(postBody)
 
