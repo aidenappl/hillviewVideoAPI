@@ -13,6 +13,9 @@ var (
 	AWSRegion        = getEnvOrPanic("AWS_REGION")
 	AWSKey           = getEnvOrPanic("AWS_ACCESS_KEY_ID")
 	AWSSecret        = getEnvOrPanic("AWS_SECRET_ACCESS_KEY")
+	CloudflareUID    = getEnvOrPanic("CLOUDFLARE_UID")
+	CloudflareKey    = getEnvOrPanic("CLOUDFLARE_KEY")
+	CloudflareEmail  = getEnvOrPanic("CLOUDFLARE_EMAIL")
 )
 
 func getEnv(key string, fallback string) string {

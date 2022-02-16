@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"bytes"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hillview.tv/videoAPI/awsBridge"
+	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
 )
 
@@ -40,6 +42,51 @@ func RandStringBytesMaskImpr(n int) string {
 
 type VideoUplaodResponse struct {
 	URL string `json:"url"`
+}
+
+type CloudflareResponse struct {
+	Result struct {
+		UID                   string  `json:"uid"`
+		Thumbnail             string  `json:"thumbnail"`
+		ThumbnailTimestampPct float64 `json:"thumbnailTimestampPct"`
+		ReadyToStream         bool    `json:"readyToStream"`
+		Status                struct {
+			State           string `json:"state"`
+			ErrorReasonCode string `json:"errorReasonCode"`
+			ErrorReasonText string `json:"errorReasonText"`
+		} `json:"status"`
+		Meta struct {
+			DownloadedFrom string `json:"downloaded-from"`
+		} `json:"meta"`
+		Created            time.Time     `json:"created"`
+		Modified           time.Time     `json:"modified"`
+		Size               int           `json:"size"`
+		Preview            string        `json:"preview"`
+		AllowedOrigins     []interface{} `json:"allowedOrigins"`
+		RequireSignedURLs  bool          `json:"requireSignedURLs"`
+		Uploaded           time.Time     `json:"uploaded"`
+		UploadExpiry       interface{}   `json:"uploadExpiry"`
+		MaxSizeBytes       interface{}   `json:"maxSizeBytes"`
+		MaxDurationSeconds interface{}   `json:"maxDurationSeconds"`
+		Duration           int           `json:"duration"`
+		Input              struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		} `json:"input"`
+		Playback struct {
+			Hls  string `json:"hls"`
+			Dash string `json:"dash"`
+		} `json:"playback"`
+		Watermark interface{} `json:"watermark"`
+	} `json:"result"`
+	Success  bool          `json:"success"`
+	Errors   []interface{} `json:"errors"`
+	Messages []interface{} `json:"messages"`
+}
+
+type CloudflareRequest struct {
+	URL                   string  `json:"url"`
+	ThumbnailTimestampPct float64 `json:"thumbnailTimestampPct"`
 }
 
 func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
@@ -81,8 +128,37 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	postBody, _ := json.Marshal(map[string]string{
+		"url": "https://content.hillview.tv/videos/uploads/" + generated,
+	})
+	responseBody := bytes.NewBuffer(postBody)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
+	req.Header.Set("X-Auth-Email", env.CloudflareEmail)
+	req.Header.Set("X-Auth-Key", env.CloudflareKey)
+	res, _ := client.Do(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	defer res.Body.Close()
+
+	body := CloudflareResponse{}
+	err = json.NewDecoder(res.Body).Decode(&body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if body.Success == false {
+		http.Error(w, body.Errors[0].(string), http.StatusInternalServerError)
+		return
+	}
+
 	//return the url of the uploaded file
 	json.NewEncoder(w).Encode(VideoUplaodResponse{
-		URL: "https://content.hillview.tv/videos/uploads/" + generated,
+		URL: body.Result.Playback.Hls,
 	})
 }
