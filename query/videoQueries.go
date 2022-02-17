@@ -90,6 +90,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
 		OrderBy("videos.id DESC").
+		Where(sq.Eq{"video_statuses.id": 1}).
 		Limit(*req.Limit).
 		ToSql()
 	if err != nil {
