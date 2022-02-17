@@ -168,3 +168,52 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		Thumbnail: body.Result.Thumbnail,
 	})
 }
+
+type ThumbnailUploadResponse struct {
+	URL string `json:"url"`
+}
+
+func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
+
+	claims := middleware.WithClaimsValue(r.Context())
+	if claims == nil {
+		http.Error(w, "Missing Authorization token", http.StatusUnauthorized)
+		return
+	}
+
+	sub, err := strconv.Atoi(claims.Subject)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sessionHandler := awsBridge.Connect()
+	uploader := s3manager.NewUploader(sessionHandler)
+	file, _, err := r.FormFile("upload")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	now := time.Now()
+	sec := now.Unix()
+	generated := "UID" + strconv.Itoa(sub) + "-" + strconv.FormatInt(sec, 10) + "-" + RandStringBytesMaskImpr(10) + ".jpg"
+
+	//upload to the s3 bucket
+	_, err = uploader.Upload(&s3manager.UploadInput{
+		Bucket:      aws.String("content.hillview.tv"),
+		ACL:         aws.String("public-read"),
+		Key:         aws.String("thumbnails/" + *aws.String(generated)),
+		Body:        file,
+		ContentType: aws.String("image/jpeg"),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(ThumbnailUploadResponse{
+		URL: "https://content.hillview.tv/thumbnails/" + generated,
+	})
+
+}
