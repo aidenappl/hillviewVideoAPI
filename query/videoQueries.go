@@ -70,12 +70,14 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 }
 
 type ListVideosRequest struct {
-	Limit *uint64
+	Limit  *uint64
+	Offset *uint64
+	Search *string
 }
 
 func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error) {
 
-	query, args, err := sq.Select(
+	q := sq.Select(
 		"videos.id",
 		"videos.title",
 		"videos.description",
@@ -92,10 +94,23 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 		OrderBy("videos.id DESC").
 		Where(sq.Eq{"video_statuses.id": 1}).
 		Limit(*req.Limit).
-		ToSql()
+		Offset(*req.Offset)
+
+	if req.Search != nil {
+		q = q.Where(
+			sq.Or{
+				sq.Like{"videos.title": "%" + string(*req.Search) + "%"},
+				sq.Like{"videos.description": "%" + string(*req.Search) + "%"},
+			},
+		)
+	}
+
+	query, args, err := q.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create query: %w", err)
 	}
+
+	fmt.Println(query)
 
 	rows, err := db.Query(query, args...)
 	if err != nil {
