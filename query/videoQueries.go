@@ -110,8 +110,6 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 		return nil, fmt.Errorf("failed to create query: %w", err)
 	}
 
-	fmt.Println(query)
-
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
