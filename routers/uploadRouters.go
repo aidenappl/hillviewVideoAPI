@@ -3,6 +3,7 @@ package routers
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -94,6 +95,8 @@ type CloudflareRequest struct {
 
 func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 
+	log.Println("Incoming video upload request!")
+
 	claims := middleware.WithClaimsValue(r.Context())
 	if claims == nil {
 		http.Error(w, "Missing Authorization token", http.StatusUnauthorized)
@@ -131,18 +134,27 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	postBody, _ := json.Marshal(CloudflareRequest{
+	postBody, err := json.Marshal(CloudflareRequest{
 		URL:                   "https://content.hillview.tv/videos/uploads/" + generated,
 		Name:                  strings.TrimSuffix(generated, ".mp4"),
 		ThumbnailTimestampPct: 0.5,
 	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	responseBody := bytes.NewBuffer(postBody)
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
+	req, err := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	req.Header.Set("X-Auth-Email", env.CloudflareEmail)
 	req.Header.Set("X-Auth-Key", env.CloudflareKey)
-	res, _ := client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
