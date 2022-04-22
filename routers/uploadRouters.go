@@ -3,7 +3,6 @@ package routers
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -94,8 +93,6 @@ type CloudflareRequest struct {
 }
 
 func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
-
-	log.Println("Incoming video upload request!")
 
 	claims := middleware.WithClaimsValue(r.Context())
 	if claims == nil {
