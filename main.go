@@ -39,6 +39,7 @@ func main() {
 	list := r.PathPrefix("/list").Subrouter()
 
 	list.HandleFunc("/videos", routers.HandleVideoLists).Methods(http.MethodGet)
+	list.HandleFunc("/playlists", routers.HandlePlaylistLists).Methods(http.MethodGet)
 
 	// Read Queries
 

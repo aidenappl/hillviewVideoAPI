@@ -9,6 +9,24 @@ import (
 	"github.com/hillview.tv/videoAPI/query"
 )
 
+func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
+	limit := r.URL.Query().Get("limit")
+	offset := r.URL.Query().Get("offset")
+	searchQuery := r.URL.Query().Get("search")
+
+	if len(limit) == 0 {
+		http.Error(w, "missing limit param", http.StatusBadRequest)
+		return
+	}
+
+	if len(offset) == 0 {
+		http.Error(w, "missing offset param", http.StatusBadRequest)
+		return
+	}
+
+	
+}
+
 func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 	limit := r.URL.Query().Get("limit")
 	offset := r.URL.Query().Get("offset")
