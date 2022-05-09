@@ -69,7 +69,8 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 }
 
 type GetPlaylistRequest struct {
-	ID *int
+	ID    *int
+	Route *string
 }
 
 func GetPlaylist(db db.Queryable, req GetPlaylistRequest) (*structs.Playlist, error) {
@@ -83,6 +84,14 @@ func GetPlaylist(db db.Queryable, req GetPlaylistRequest) (*structs.Playlist, er
 		"playlists.inserted_at",
 	).
 		From("playlists")
+
+	if req.ID != nil {
+		q = q.Where(sq.Eq{"playlists.id": int(*req.ID)})
+	}
+
+	if req.Route != nil {
+		q = q.Where(sq.Eq{"playlists.route": string(*req.Route)})
+	}
 
 	query, args, err := q.ToSql()
 	if err != nil {
