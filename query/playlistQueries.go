@@ -67,3 +67,61 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 
 	return playlists, nil
 }
+
+type GetPlaylistRequest struct {
+	ID *int
+}
+
+func GetPlaylist(db db.Queryable, req GetPlaylistRequest) (*structs.Playlist, error) {
+
+	q := sq.Select(
+		"playlists.id",
+		"playlists.name",
+		"playlists.description",
+		"playlists.banner_image",
+		"playlists.route",
+		"playlists.inserted_at",
+	).
+		From("playlists")
+
+	query, args, err := q.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("error parsing query: %s", err)
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying playlists: %s", err)
+	}
+
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("no playlist found")
+	}
+
+	var playlist structs.Playlist
+	err = rows.Scan(
+		&playlist.ID,
+		&playlist.Name,
+		&playlist.Description,
+		&playlist.BannerImage,
+		&playlist.Route,
+		&playlist.InsertedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning playlist: %s", err)
+	}
+
+	videos, err := ListVideos(db, ListVideosRequest{
+		PlaylistID: &playlist.ID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error querying videos: %s", err)
+	}
+
+	playlist.Videos = videos
+
+	return &playlist, nil
+
+}

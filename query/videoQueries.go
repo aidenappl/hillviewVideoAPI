@@ -78,6 +78,16 @@ type ListVideosRequest struct {
 
 func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error) {
 
+	if req.Limit == nil {
+		req.Limit = new(uint64)
+		*req.Limit = 10
+	}
+
+	if req.Offset == nil {
+		req.Offset = new(uint64)
+		*req.Offset = 0
+	}
+
 	q := sq.Select(
 		"videos.id",
 		"videos.title",

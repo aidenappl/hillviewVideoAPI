@@ -46,6 +46,7 @@ func main() {
 	read := r.PathPrefix("/read").Subrouter()
 
 	read.HandleFunc("/videoByID/{id}", routers.HandleVideoRead).Methods(http.MethodGet)
+	read.HandleFunc("/playlist", routers.HandlePlaylistRead).Methods(http.MethodGet)
 
 	// Upload Queries
 

@@ -35,3 +35,28 @@ func HandleVideoRead(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(video)
 }
+
+func HandlePlaylistRead(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+
+	if len(id) == 0 {
+		http.Error(w, "missing id param", http.StatusBadRequest)
+		return
+	}
+
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, "failed to convert string to int: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	playlist, err := query.GetPlaylist(db.DB, query.GetPlaylistRequest{
+		ID: &idInt,
+	})
+	if err != nil {
+		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(playlist)
+}
