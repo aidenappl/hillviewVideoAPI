@@ -12,7 +12,7 @@ import (
 func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 	limit := r.URL.Query().Get("limit")
 	offset := r.URL.Query().Get("offset")
-	searchQuery := r.URL.Query().Get("search")
+	_ = r.URL.Query().Get("search")
 
 	if len(limit) == 0 {
 		http.Error(w, "missing limit param", http.StatusBadRequest)
@@ -24,7 +24,28 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
+	limitInt, err := strconv.ParseUint(string(limit), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid limit param", http.StatusBadRequest)
+		return
+	}
+
+	offsetInt, err := strconv.ParseUint(string(offset), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid offset param", http.StatusBadRequest)
+		return
+	}
+
+	playlists, err := query.ListPlaylists(db.DB, query.ListPlaylistsRequest{
+		Limit:  limitInt,
+		Offset: offsetInt,
+	})
+	if err != nil {
+		http.Error(w, "error querying playlists", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(playlists)
 }
 
 func HandleVideoLists(w http.ResponseWriter, r *http.Request) {

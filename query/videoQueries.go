@@ -70,9 +70,10 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 }
 
 type ListVideosRequest struct {
-	Limit  *uint64
-	Offset *uint64
-	Search *string
+	Limit      *uint64
+	Offset     *uint64
+	Search     *string
+	PlaylistID *int
 }
 
 func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error) {
@@ -91,6 +92,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
+		Join("playlist_associations pa on videos.id = pa.video_id").
 		OrderBy("videos.id DESC").
 		Where(sq.Eq{"video_statuses.id": 1}).
 		Limit(*req.Limit).
@@ -103,6 +105,10 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 				sq.Like{"videos.description": "%" + string(*req.Search) + "%"},
 			},
 		)
+	}
+
+	if req.PlaylistID != nil {
+		q = q.Where(sq.Eq{"pa.playlist_id": *req.PlaylistID})
 	}
 
 	query, args, err := q.ToSql()
