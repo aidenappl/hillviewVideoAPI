@@ -102,7 +102,6 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
-		Join("playlist_associations pa on videos.id = pa.video_id").
 		OrderBy("videos.id DESC").
 		Where(sq.Eq{"video_statuses.id": 1}).
 		Limit(*req.Limit).
@@ -118,6 +117,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 	}
 
 	if req.PlaylistID != nil {
+		q = q.Join("playlist_associations pa on videos.id = pa.video_id")
 		q = q.Where(sq.Eq{"pa.playlist_id": *req.PlaylistID})
 	}
 
