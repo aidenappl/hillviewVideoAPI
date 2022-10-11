@@ -6,13 +6,6 @@
         "dnsSearchDomains": null,
         "environmentFiles": null,
         "logConfiguration": {
-          "logDriver": "awslogs",
-          "secretOptions": null,
-          "options": {
-            "awslogs-group": "/ecs/hillviewtv-video-service",
-            "awslogs-region": "us-west-1",
-            "awslogs-stream-prefix": "ecs"
-          }
         },
         "entryPoint": null,
         "portMappings": [
