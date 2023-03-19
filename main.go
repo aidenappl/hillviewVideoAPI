@@ -2,8 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -12,11 +16,29 @@ import (
 	"github.com/hillview.tv/videoAPI/routers"
 )
 
+func FilterDir(dir string) (*[]string, error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	res := &[]string{}
+	for _, f := range files {
+		if !f.IsDir() && strings.HasPrefix(f.Name(), "multipart-") {
+			*res = append(*res, f.Name())
+			os.Remove(filepath.Join(dir, f.Name()))
+		}
+	}
+
+	if len(*res) == 0 {
+		return nil, nil
+	}
+	return res, nil
+}
+
 func main() {
 	primary := mux.NewRouter()
 
 	// Healthcheck Endpoint
-
 	primary.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
@@ -33,6 +55,26 @@ func main() {
 
 	// Track & Update Last Active
 	r.Use(middleware.TokenHandlers)
+
+	// Clear all temporary files
+	// e := os.Remove("./multipart-*")
+	// if e != nil {
+	// 	log.Fatal(e)
+	// }
+
+	filenames, err := FilterDir("/tmp")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("🧹 Cleanup! [Removing temporary files]")
+	if filenames != nil {
+		for _, filename := range *filenames {
+			fmt.Println("   > removing:" + filename)
+		}
+	} else {
+		fmt.Println("   > Done. no files to remove")
+	}
 
 	// List Queries
 
