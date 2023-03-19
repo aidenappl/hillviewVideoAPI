@@ -110,7 +110,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	uploader := s3manager.NewUploader(sessionHandler)
 	file, _, err := r.FormFile("upload")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to get formfile: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -127,7 +127,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		ContentType: aws.String("video/mp4"),
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to upload to s3 bucket: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -137,7 +137,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		ThumbnailTimestampPct: 0.5,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to marshal the post body: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -146,14 +146,14 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to create post to cloudflare: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	req.Header.Set("X-Auth-Email", env.CloudflareEmail)
 	req.Header.Set("X-Auth-Key", env.CloudflareKey)
 	res, err := client.Do(req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to execute post to cloudflare: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -162,12 +162,12 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	body := CloudflareResponse{}
 	err = json.NewDecoder(res.Body).Decode(&body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to decode body from cloudflare: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if !body.Success {
-		http.Error(w, body.Errors[0].(string), http.StatusInternalServerError)
+		http.Error(w, "something went wrong in the cloudflare response: "+body.Errors[0].(string), http.StatusInternalServerError)
 		return
 	}
 
