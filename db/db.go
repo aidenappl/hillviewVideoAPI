@@ -27,15 +27,6 @@ var DB = func() *sql.DB {
 	return db
 }()
 
-var AssetDB = func() *sql.DB {
-	db, err := sql.Open("mysql", env.AssetDatabaseDSN)
-	if err != nil {
-		panic(fmt.Errorf("error opening database: %w", err))
-	}
-
-	return db
-}()
-
 type Queryable interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Prepare(query string) (*sql.Stmt, error)
