@@ -57,11 +57,6 @@ func main() {
 	r.Use(middleware.TokenHandlers)
 
 	// Clear all temporary files
-	// e := os.Remove("./multipart-*")
-	// if e != nil {
-	// 	log.Fatal(e)
-	// }
-
 	filenames, err := FilterDir("/tmp")
 	if err != nil {
 		log.Fatal(err)
@@ -75,6 +70,9 @@ func main() {
 	} else {
 		fmt.Println("   > Done. no files to remove")
 	}
+
+	// v2.1 Endpoints
+	r.HandleFunc("/video", routers.HandleGetVideo).Methods(http.MethodGet)
 
 	// List Queries
 

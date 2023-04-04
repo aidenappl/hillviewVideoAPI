@@ -9,11 +9,18 @@ import (
 )
 
 type GetVideoRequest struct {
-	ID *int `json:"id"`
+	ID   *int    `json:"id"`
+	UUID *string `json:"uuid"`
 }
 
 func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
-	query, args, err := sq.Select(
+	// check the req
+	if req.ID == nil && req.UUID == nil {
+		return nil, fmt.Errorf("missing 'id' or 'uuid' query param")
+	}
+
+	// create the query
+	q := sq.Select(
 		"videos.id",
 		"videos.title",
 		"videos.description",
@@ -27,9 +34,17 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
-		OrderBy("videos.id DESC").
-		Where(sq.Eq{"videos.id": req.ID}).
-		ToSql()
+		OrderBy("videos.id DESC")
+
+	if req.ID != nil {
+		q = q.Where(sq.Eq{"videos.id": *req.ID})
+	}
+
+	if req.UUID != nil {
+		q = q.Where(sq.Eq{"videos.uuid": *req.UUID})
+	}
+
+	query, args, err := q.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create query: %w", err)
 	}
