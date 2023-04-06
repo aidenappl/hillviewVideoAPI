@@ -1,160 +1,79 @@
 {
-  "ipcMode": null,
-  "executionRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
-  "containerDefinitions": [
-    {
-      "dnsSearchDomains": null,
-      "environmentFiles": null,
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/hillviewtv-video-service",
-          "awslogs-region": "us-west-1",
-          "awslogs-stream-prefix": "ecs"
-        }
-      },
-      "entryPoint": null,
-      "portMappings": [
-        {
-          "hostPort": 0,
-          "protocol": "tcp",
-          "containerPort": 8000
-        }
-      ],
-      "command": null,
-      "linuxParameters": null,
-      "cpu": 0,
-      "environment": [
-        {
-          "name": "PORT",
-          "value": "8000"
-        }
-      ],
-      "resourceRequirements": null,
-      "ulimits": null,
-      "dnsServers": null,
-      "mountPoints": [],
-      "workingDirectory": null,
-      "secrets": [
-        {
-          "valueFrom": "/env/hillviewtv-auth-service/DATABASE_DSN",
-          "name": "DATABASE_DSN"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-asset-service/DATABASE_DSN",
-          "name": "ASSET_DATABASE_DSN"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-auth-service/JWT_SIGNING_KEY",
-          "name": "JWT_SIGNING_KEY"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-video-service/AWS_REGION",
-          "name": "AWS_REGION"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-video-service/AWS_SECRET_ACCESS_KEY",
-          "name": "AWS_SECRET_ACCESS_KEY"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-video-service/AWS_ACCESS_KEY_ID",
-          "name": "AWS_ACCESS_KEY_ID"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_UID",
-          "name": "CLOUDFLARE_UID"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_KEY",
-          "name": "CLOUDFLARE_KEY"
-        },
-        {
-          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_EMAIL",
-          "name": "CLOUDFLARE_EMAIL"
-        }
-      ],
-      "dockerSecurityOptions": null,
-      "memory": 512,
-      "memoryReservation": null,
-      "volumesFrom": [],
-      "stopTimeout": null,
-      "image": "605737100658.dkr.ecr.us-west-1.amazonaws.com/hillviewtv-video-service:latest",
-      "startTimeout": null,
-      "firelensConfiguration": null,
-      "dependsOn": null,
-      "disableNetworking": null,
-      "interactive": null,
-      "healthCheck": null,
-      "essential": true,
-      "links": null,
-      "hostname": null,
-      "extraHosts": null,
-      "pseudoTerminal": null,
-      "user": null,
-      "readonlyRootFilesystem": null,
-      "dockerLabels": null,
-      "systemControls": null,
-      "privileged": null,
-      "name": "hillviewtv-video-service"
-    }
-  ],
-  "placementConstraints": [],
-  "memory": "512",
-  "taskRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
-  "compatibilities": ["EXTERNAL", "EC2"],
-  "taskDefinitionArn": "arn:aws:ecs:us-west-1:605737100658:task-definition/hillviewtv-video-service:1",
   "family": "hillviewtv-video-service",
-  "requiresAttributes": [
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
-    },
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "ecs.capability.execution-role-awslogs"
-    },
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "com.amazonaws.ecs.capability.ecr-auth"
-    },
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
-    },
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "com.amazonaws.ecs.capability.task-iam-role"
-    },
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "ecs.capability.execution-role-ecr-pull"
-    },
-    {
-      "targetId": null,
-      "targetType": null,
-      "value": null,
-      "name": "ecs.capability.secrets.ssm.environment-variables"
-    }
+  "containerDefinitions": [
+      {
+          "name": "hillviewtv-video-service",
+          "image": "605737100658.dkr.ecr.us-west-1.amazonaws.com/hillviewtv-video-service:latest",
+          "cpu": 0,
+          "memory": 512,
+          "portMappings": [
+              {
+                  "containerPort": 8000,
+                  "hostPort": 0,
+                  "protocol": "tcp"
+              }
+          ],
+          "essential": true,
+          "environment": [
+              {
+                  "name": "PORT",
+                  "value": "8000"
+              }
+          ],
+          "mountPoints": [],
+          "volumesFrom": [],
+          "secrets": [
+              {
+                  "name": "DATABASE_DSN",
+                  "valueFrom": "/env/hillviewtv-auth-service/DATABASE_DSN"
+              },
+              {
+                  "name": "ASSET_DATABASE_DSN",
+                  "valueFrom": "/env/hillviewtv-asset-service/DATABASE_DSN"
+              },
+              {
+                  "name": "JWT_SIGNING_KEY",
+                  "valueFrom": "/env/hillviewtv-auth-service/JWT_SIGNING_KEY"
+              },
+              {
+                  "name": "AWS_REGION",
+                  "valueFrom": "/env/hillviewtv-video-service/AWS_REGION"
+              },
+              {
+                  "name": "AWS_SECRET_ACCESS_KEY",
+                  "valueFrom": "/env/hillviewtv-video-service/AWS_SECRET_ACCESS_KEY"
+              },
+              {
+                  "name": "AWS_ACCESS_KEY_ID",
+                  "valueFrom": "/env/hillviewtv-video-service/AWS_ACCESS_KEY_ID"
+              },
+              {
+                  "name": "CLOUDFLARE_UID",
+                  "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_UID"
+              },
+              {
+                  "name": "CLOUDFLARE_KEY",
+                  "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_KEY"
+              },
+              {
+                  "name": "CLOUDFLARE_EMAIL",
+                  "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_EMAIL"
+              }
+          ],
+          "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                  "awslogs-group": "/ecs/hillviewtv-video-service",
+                  "awslogs-region": "us-west-1",
+                  "awslogs-stream-prefix": "ecs"
+              }
+          }
+      }
   ],
-  "pidMode": null,
-  "requiresCompatibilities": ["EC2"],
-  "networkMode": null,
-  "cpu": null,
-  "revision": 11,
-  "status": "ACTIVE",
-  "inferenceAccelerators": null,
-  "proxyConfiguration": null,
-  "volumes": []
+  "taskRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
+  "requiresCompatibilities": [
+      "EC2"
+  ],
+  "memory": "512"
 }
