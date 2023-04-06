@@ -22,10 +22,13 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 	// create the query
 	q := sq.Select(
 		"videos.id",
+		"videos.uuid",
 		"videos.title",
 		"videos.description",
 		"videos.thumbnail",
 		"videos.url",
+		"videos.download_url",
+		"videos.allow_downloads",
 		"videos.inserted_at",
 
 		"video_statuses.id",
@@ -65,10 +68,13 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 
 	err = rows.Scan(
 		&video.ID,
+		&video.UUID,
 		&video.Title,
 		&video.Description,
 		&video.Thumbnail,
 		&video.URL,
+		&video.DownloadURL,
+		&video.AllowDownloads,
 		&video.InsertedAt,
 
 		&status.ID,
