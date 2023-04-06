@@ -63,7 +63,7 @@ jobs:
               id: render-ecs-task-definition
               uses: aws-actions/amazon-ecs-render-task-definition@v1
               with:
-                  task-definition: container_definitions/${{ secrets.NAME }}.json
+                  task-definition: container_definitions/hillviewtv-video-service.json
                   container-name: video-service
                   image: ${{ env.IMAGE }}
 
