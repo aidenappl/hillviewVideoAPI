@@ -1,70 +1,92 @@
 {
-    "taskDefinitionArn": "arn:aws:ecs:us-west-1:605737100658:task-definition/hillviewtv-video-service:37",
-    "containerDefinitions": [
-      {
-        "name": "hillviewtv-video-service",
-        "image": "605737100658.dkr.ecr.us-west-1.amazonaws.com/hillviewtv-video-service:b66978a",
-        "cpu": 0,
-        "memory": 256,
-        "portMappings": [
-          {
-            "containerPort": 8000,
-            "hostPort": 0,
-            "protocol": "tcp"
-          }
-        ],
-        "essential": true,
-        "environment": [
-          {
-            "name": "PORT",
-            "value": "8000"
-          }
-        ],
-        "mountPoints": [],
-        "volumesFrom": [],
-        "secrets": [
-          {
-            "name": "DATABASE_DSN",
-            "valueFrom": "/env/hillviewtv-auth-service/DATABASE_DSN"
-          },
-          {
-            "name": "ASSET_DATABASE_DSN",
-            "valueFrom": "/env/hillviewtv-asset-service/DATABASE_DSN"
-          },
-          {
-            "name": "JWT_SIGNING_KEY",
-            "valueFrom": "/env/hillviewtv-auth-service/JWT_SIGNING_KEY"
-          }
-        ]
-      }
-    ],
-    "family": "hillviewtv-video-service",
-    "taskRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
-    "executionRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
-    "revision": 37,
-    "volumes": [],
-    "status": "ACTIVE",
-    "requiresAttributes": [
-      {
-        "name": "com.amazonaws.ecs.capability.ecr-auth"
-      },
-      {
-        "name": "com.amazonaws.ecs.capability.task-iam-role"
-      },
-      {
-        "name": "ecs.capability.execution-role-ecr-pull"
-      },
-      {
-        "name": "ecs.capability.secrets.ssm.environment-variables"
-      }
-    ],
-    "placementConstraints": [],
-    "compatibilities": ["EXTERNAL", "EC2"],
-    "requiresCompatibilities": ["EC2"],
-    "memory": "256",
-    "registeredAt": "2023-03-26T19:49:44.576Z",
-    "registeredBy": "arn:aws:iam::605737100658:user/github-actions-key",
-    "tags": []
-  }
-  
-  
+  "taskDefinitionArn": "arn:aws:ecs:us-west-1:605737100658:task-definition/hillviewtv-video-service:37",
+  "containerDefinitions": [
+    {
+      "name": "hillviewtv-video-service",
+      "image": "605737100658.dkr.ecr.us-west-1.amazonaws.com/hillviewtv-video-service:b66978a",
+      "cpu": 0,
+      "memory": 256,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 0,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8000"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "secrets": [
+        {
+          "name": "DATABASE_DSN",
+          "valueFrom": "/env/hillviewtv-auth-service/DATABASE_DSN"
+        },
+        {
+          "name": "ASSET_DATABASE_DSN",
+          "valueFrom": "/env/hillviewtv-asset-service/DATABASE_DSN"
+        },
+        {
+          "name": "JWT_SIGNING_KEY",
+          "valueFrom": "/env/hillviewtv-auth-service/JWT_SIGNING_KEY"
+        },
+        {
+          "name": "AWS_REGION",
+          "valueFrom": "/env/hillviewtv-video-service/AWS_REGION"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "valueFrom": "/env/hillviewtv-video-service/AWS_SECRET_ACCESS_KEY"
+        },
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "valueFrom": "/env/hillviewtv-video-service/AWS_ACCESS_KEY_ID"
+        },
+        {
+          "name": "CLOUDFLARE_UID",
+          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_UID"
+        },
+        {
+          "name": "CLOUDFLARE_KEY",
+          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_KEY"
+        },
+        {
+          "name": "CLOUDFLARE_EMAIL",
+          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_EMAIL"
+        }
+      ]
+    }
+  ],
+  "family": "hillviewtv-video-service",
+  "taskRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::605737100658:role/HillviewTVAPIECSTaskExecutionRole",
+  "revision": 37,
+  "volumes": [],
+  "status": "ACTIVE",
+  "requiresAttributes": [
+    {
+      "name": "com.amazonaws.ecs.capability.ecr-auth"
+    },
+    {
+      "name": "com.amazonaws.ecs.capability.task-iam-role"
+    },
+    {
+      "name": "ecs.capability.execution-role-ecr-pull"
+    },
+    {
+      "name": "ecs.capability.secrets.ssm.environment-variables"
+    }
+  ],
+  "placementConstraints": [],
+  "compatibilities": ["EXTERNAL", "EC2"],
+  "requiresCompatibilities": ["EC2"],
+  "memory": "256",
+  "registeredAt": "2023-03-26T19:49:44.576Z",
+  "registeredBy": "arn:aws:iam::605737100658:user/github-actions-key",
+  "tags": []
+}
