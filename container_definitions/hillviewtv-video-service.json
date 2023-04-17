@@ -59,7 +59,15 @@
           "name": "CLOUDFLARE_EMAIL",
           "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_EMAIL"
         }
-      ]
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/hillviewtv-video-service",
+          "awslogs-region": "us-west-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
     }
   ],
   "family": "hillviewtv-video-service",
