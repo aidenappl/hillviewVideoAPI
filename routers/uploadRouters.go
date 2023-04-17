@@ -108,21 +108,14 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Convert the subject to an int
 	sub, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Parse the multipart form data
-	err = r.ParseMultipartForm(32 << 20) // 32MB
-	if err != nil {
-		http.Error(w, ""+err.Error(), http.StatusBadRequest)
+		http.Error(w, "failed to get subject: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Get the file from the form data
 	file, _, err := r.FormFile("upload")
 	if err != nil {
-		http.Error(w, "failed to get formfile: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to get formfile: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
@@ -130,7 +123,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Create a temporary file to store the uploaded data with the title of upload-[current timestamp]
 	tempFile, err := os.CreateTemp("", "upload-"+strconv.FormatInt(time.Now().Unix(), 10)+"-*")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer tempFile.Close()
@@ -138,7 +131,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Copy the uploaded data to the temporary file
 	fileSize, err := io.Copy(tempFile, file)
 	if err != nil {
-		http.Error(w, "failed to copy over file: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to copy over file: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -147,7 +140,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Reset the file pointer to the start of the file
 	_, err = tempFile.Seek(0, 0)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -157,16 +150,18 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	generated := "UID" + strconv.Itoa(sub) + "-" + strconv.FormatInt(sec, 10) + "-" + RandStringBytesMaskImpr(10) + ".mp4"
 
 	// Upload the temporary file to s3
-	err = actions.UploadFile(tempFile, generated, fileSize)
+	response, err := actions.UploadMultipart(tempFile, generated)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to upload to s3: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	fmt.Println("Successfully uploaded a video to S3:", response)
 
 	// delete the temporary file
 	err = os.Remove(tempFile.Name())
 	if err != nil {
-		http.Error(w, "failed to delete the temporary file: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to delete the temporary file: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -177,7 +172,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		ThumbnailTimestampPct: 0.5,
 	})
 	if err != nil {
-		http.Error(w, "failed to marshal the post body: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to marshal the post body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	responseBody := bytes.NewBuffer(postBody)
@@ -186,14 +181,14 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
 	if err != nil {
-		http.Error(w, "failed to create post to cloudflare: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to create post to cloudflare: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	req.Header.Set("X-Auth-Email", env.CloudflareEmail)
 	req.Header.Set("X-Auth-Key", env.CloudflareKey)
 	res, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "failed to execute post to cloudflare: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to execute post to cloudflare: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -203,12 +198,12 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	body := CloudflareResponse{}
 	err = json.NewDecoder(res.Body).Decode(&body)
 	if err != nil {
-		http.Error(w, "failed to decode body from cloudflare: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to decode body from cloudflare: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if !body.Success {
-		http.Error(w, "something went wrong in the cloudflare response: "+body.Errors[0].(string), http.StatusInternalServerError)
+		http.Error(w, "something went wrong in the cloudflare response: "+body.Errors[0].(string), http.StatusBadRequest)
 		return
 	}
 
@@ -233,7 +228,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 
 	sub, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -241,7 +236,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 	uploader := s3manager.NewUploader(sessionHandler)
 	file, _, err := r.FormFile("upload")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -258,7 +253,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 		ContentType: aws.String("image/jpeg"),
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
