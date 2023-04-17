@@ -25,7 +25,8 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 		"playlists.route",
 		"playlists.inserted_at",
 	).
-		From("playlists")
+		From("playlists").
+		Where(sq.Eq{"playlists.status": 1})
 
 	query, args, err := q.ToSql()
 	if err != nil {
