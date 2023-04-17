@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -116,6 +118,18 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("upload")
 	if err != nil {
 		http.Error(w, "failed to get formfile: "+err.Error(), http.StatusBadRequest)
+		files, err := ioutil.ReadDir("/tmp")
+		if err != nil {
+			http.Error(w, "failed to clear tmp: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		res := &[]string{}
+		for _, f := range files {
+			if !f.IsDir() && strings.HasPrefix(f.Name(), "multipart-") {
+				*res = append(*res, f.Name())
+				os.Remove(filepath.Join("/tmp", f.Name()))
+			}
+		}
 		return
 	}
 	defer file.Close()
