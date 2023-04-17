@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// v2.1 Endpoints
-	r.HandleFunc("/video", routers.HandleGetVideo).Methods(http.MethodGet)
+	r.HandleFunc("/video/{query}", routers.HandleGetVideo).Methods(http.MethodGet)
 
 	// List Queries
 

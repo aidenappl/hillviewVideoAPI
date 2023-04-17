@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/query"
 )
@@ -18,23 +19,19 @@ func HandleGetVideo(w http.ResponseWriter, r *http.Request) {
 	var req GetVideoRequest
 
 	// Get the query params
-	id := r.URL.Query().Get("id")
-	uuid := r.URL.Query().Get("uuid")
+	q := mux.Vars(r)["query"]
 
-	// Check if the id is valid
-	if len(id) != 0 {
-		intID, err := strconv.Atoi(id)
+	// Convert the query params to the correct type
+	if q == "" {
+		http.Error(w, "missing 'query' param", http.StatusBadRequest)
+		return
+	} else {
+		idInt, err := strconv.Atoi(q)
 		if err != nil {
-			http.Error(w, "failed to convert string to int: "+err.Error(), http.StatusInternalServerError)
-			return
+			req.UUID = &q
+		} else {
+			req.ID = &idInt
 		}
-
-		req.ID = &intID
-	}
-
-	// Check if the uuid is valid
-	if len(uuid) != 0 {
-		req.UUID = &uuid
 	}
 
 	// Check if the request is valid
@@ -50,6 +47,11 @@ func HandleGetVideo(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if video == nil {
+		http.Error(w, "video not found", http.StatusNotFound)
 		return
 	}
 

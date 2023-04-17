@@ -60,7 +60,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("no video found")
+		return nil, nil
 	}
 
 	var video structs.Video
