@@ -3,8 +3,8 @@ package actions
 import (
 	"bytes"
 	"fmt"
+	"mime/multipart"
 	"net/http"
-	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -23,7 +23,7 @@ var (
 	awsBucketName      = "content.hillview.tv"
 )
 
-func UploadMultipart(file *os.File, filename string) (*s3.CompleteMultipartUploadOutput, error) {
+func UploadMultipart(file multipart.File, fileHeader *multipart.FileHeader, filename string) (*s3.CompleteMultipartUploadOutput, error) {
 	creds := credentials.NewStaticCredentials(awsAccessKeyID, awsSecretAccessKey, "")
 	_, err := creds.Get()
 	if err != nil {
@@ -32,11 +32,14 @@ func UploadMultipart(file *os.File, filename string) (*s3.CompleteMultipartUploa
 	cfg := aws.NewConfig().WithRegion(awsBucketRegion).WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
-	fileInfo, _ := file.Stat()
-	size := fileInfo.Size()
+	size := fileHeader.Size
 	buffer := make([]byte, size)
+	file.Seek(0, 0) // Ensure you're reading from the beginning of the file
+	_, err = file.Read(buffer)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read file: %v", err)
+	}
 	fileType := http.DetectContentType(buffer)
-	file.Read(buffer)
 
 	path := "/videos/uploads/" + filename
 	input := &s3.CreateMultipartUploadInput{

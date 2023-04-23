@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -132,7 +132,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the file from the form data
-	file, _, err := r.FormFile("upload")
+	file, fileHeader, err := r.FormFile("upload")
 	if err != nil {
 		http.Error(w, "failed to get formfile: "+err.Error(), http.StatusBadRequest)
 		resetMultipart(w)
@@ -140,34 +140,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	fmt.Println("Successfully got the file from the form data")
-
-	// Create a temporary file to store the uploaded data with the title of upload-[current timestamp]
-	tempFile, err := os.CreateTemp("", "upload-"+strconv.FormatInt(time.Now().Unix(), 10)+"-*")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		resetMultipart(w)
-		return
-	}
-	defer tempFile.Close()
-
-	// Copy the uploaded data to the temporary file
-	fileSize, err := io.Copy(tempFile, file)
-	if err != nil {
-		http.Error(w, "failed to copy over file: "+err.Error(), http.StatusBadRequest)
-		resetMultipart(w)
-		return
-	}
-
-	fmt.Println("Successfully uploaded a video to the local Server (bytes):", fileSize)
-
-	// Reset the file pointer to the start of the file
-	_, err = tempFile.Seek(0, 0)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		resetMultipart(w)
-		return
-	}
+	log.Println("Successfully got an upload from the form data")
 
 	// Generate a unique name for the file
 	now := time.Now()
@@ -175,7 +148,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	generated := "UID" + strconv.Itoa(sub) + "-" + strconv.FormatInt(sec, 10) + "-" + RandStringBytesMaskImpr(10) + ".mp4"
 
 	// Upload the temporary file to s3
-	response, err := actions.UploadMultipart(tempFile, generated)
+	response, err := actions.UploadMultipart(file, fileHeader, generated)
 	if err != nil {
 		http.Error(w, "failed to upload to s3: "+err.Error(), http.StatusBadRequest)
 		resetMultipart(w)
@@ -183,14 +156,6 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("Successfully uploaded a video to S3:", response)
-
-	// delete the temporary file
-	err = os.Remove(tempFile.Name())
-	if err != nil {
-		http.Error(w, "failed to delete the temporary file: "+err.Error(), http.StatusBadRequest)
-		resetMultipart(w)
-		return
-	}
 
 	// Create the post body for cloudflare
 	postBody, err := json.Marshal(CloudflareRequest{
