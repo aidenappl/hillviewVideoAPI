@@ -3,6 +3,7 @@ package actions
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 
@@ -51,17 +52,17 @@ func UploadMultipart(file multipart.File, fileHeader *multipart.FileHeader, file
 
 	resp, err := svc.CreateMultipartUpload(input)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return nil, err
 	}
-	fmt.Println("Created multipart upload request")
+	log.Println("Created multipart upload request")
 
 	var curr, partLength int64
 	var remaining = size
 	var completedParts []*s3.CompletedPart
 	partNumber := 1
 	for curr = 0; remaining != 0; curr += partLength {
-		fmt.Println("Uploading part", partNumber, "(", remaining, "bytes remaining )")
+		log.Println("Uploading part", partNumber, "(", remaining, "bytes remaining )")
 		if remaining < maxPartSize {
 			partLength = remaining
 		} else {
@@ -69,10 +70,10 @@ func UploadMultipart(file multipart.File, fileHeader *multipart.FileHeader, file
 		}
 		completedPart, err := uploadPart(svc, resp, buffer[curr:curr+partLength], partNumber)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			err := abortMultipartUpload(svc, resp)
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Println(err.Error())
 			}
 			return nil, err
 		}
@@ -83,7 +84,7 @@ func UploadMultipart(file multipart.File, fileHeader *multipart.FileHeader, file
 
 	completeResponse, err := completeMultipartUpload(svc, resp, completedParts)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return nil, err
 	}
 
@@ -136,7 +137,7 @@ func uploadPart(svc *s3.S3, resp *s3.CreateMultipartUploadOutput, fileBytes []by
 }
 
 func abortMultipartUpload(svc *s3.S3, resp *s3.CreateMultipartUploadOutput) error {
-	fmt.Println("Aborting multipart upload for UploadId#" + *resp.UploadId)
+	log.Println("Aborting multipart upload for UploadId#" + *resp.UploadId)
 	abortInput := &s3.AbortMultipartUploadInput{
 		Bucket:   resp.Bucket,
 		Key:      resp.Key,
