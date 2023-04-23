@@ -137,7 +137,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		resetMultipart(w)
 		return
 	}
-	defer file.Close()
+	file.Close()
 
 	log.Println("Successfully got an upload from the form data")
 
@@ -152,6 +152,8 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		resetMultipart(w)
 		return
 	}
+
+	file.Close()
 
 	log.Println("Successfully uploaded a video to S3:", response)
 
