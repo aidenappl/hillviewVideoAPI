@@ -51,6 +51,7 @@ func RandStringBytesMaskImpr(n int) string {
 type VideoUplaodResponse struct {
 	URL       string `json:"url"`
 	Thumbnail string `json:"thumbnail"`
+	S3Url     string `json:"s3_url"`
 }
 
 type CloudflareResponse struct {
@@ -212,6 +213,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(responder.New(VideoUplaodResponse{
 		URL:       body.Result.Playback.Hls,
 		Thumbnail: body.Result.Thumbnail,
+		S3Url:     *response.Location,
 	}))
 }
 
