@@ -3,7 +3,6 @@ package routers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -143,9 +142,8 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	log.Println("Successfully got an upload from the form data")
 
 	// Generate a unique name for the file
-	now := time.Now()
-	sec := now.Unix()
-	generated := "UID" + strconv.Itoa(sub) + "-" + strconv.FormatInt(sec, 10) + "-" + RandStringBytesMaskImpr(10) + ".mp4"
+	generated := "UID" + strconv.Itoa(sub) + "-" + strconv.FormatInt(time.Now().Unix(), 10) + "-" + RandStringBytesMaskImpr(10) + ".mp4"
+	log.Println("Generated name:", generated)
 
 	// Upload the temporary file to s3
 	response, err := actions.UploadMultipart(file, fileHeader, generated)
@@ -155,7 +153,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Successfully uploaded a video to S3:", response)
+	log.Println("Successfully uploaded a video to S3:", response)
 
 	// Create the post body for cloudflare
 	postBody, err := json.Marshal(CloudflareRequest{
