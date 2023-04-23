@@ -213,7 +213,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(responder.New(VideoUplaodResponse{
 		URL:       body.Result.Playback.Hls,
 		Thumbnail: body.Result.Thumbnail,
-		S3Url:     *response.Location,
+		S3Url:     "https://content.hillview.tv/videos/uploads/" + generated,
 	}))
 }
 
