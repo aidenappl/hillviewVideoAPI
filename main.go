@@ -101,6 +101,9 @@ func main() {
 
 	create.HandleFunc("/video", routers.HandleVideoCreate).Methods(http.MethodPost)
 
+	// V2.1 Endpoints
+	r.HandleFunc("/recordView/{query}", routers.HandleRecordView).Methods(http.MethodPost)
+
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
 
