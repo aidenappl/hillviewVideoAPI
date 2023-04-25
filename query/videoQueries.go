@@ -37,7 +37,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
-		Where(sq.Eq{"videos.status": 1}).
+		Where(sq.Or{sq.Eq{"videos.status": 1}, sq.Eq{"videos.status": 3}}).
 		OrderBy("videos.id DESC")
 
 	if req.ID != nil {
