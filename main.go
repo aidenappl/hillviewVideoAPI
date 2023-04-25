@@ -71,9 +71,6 @@ func main() {
 		fmt.Println("   > Done. no files to remove")
 	}
 
-	// v2.1 Endpoints
-	r.HandleFunc("/video/{query}", routers.HandleGetVideo).Methods(http.MethodGet)
-
 	// List Queries
 
 	list := r.PathPrefix("/list").Subrouter()
@@ -103,6 +100,7 @@ func main() {
 
 	// V2.1 Endpoints
 	r.HandleFunc("/recordView/{query}", routers.HandleRecordView).Methods(http.MethodPost)
+	r.HandleFunc("/video/{query}", routers.HandleGetVideo).Methods(http.MethodGet)
 
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
