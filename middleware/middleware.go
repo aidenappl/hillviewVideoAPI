@@ -107,6 +107,12 @@ func AccessTokenMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// get token from header
 		rawToken := r.Header.Get("Authorization")
+		if rawToken == "" {
+			uploadRaw := r.Header.Get("Cookies")
+			if uploadRaw != "" {
+				rawToken = uploadRaw
+			}
+		}
 		splitToken := strings.Split(rawToken, "Bearer ")
 
 		if len(splitToken) != 2 {

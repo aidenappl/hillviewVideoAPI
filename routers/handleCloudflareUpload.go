@@ -3,7 +3,6 @@ package routers
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/hillview.tv/videoAPI/env"
@@ -18,8 +17,7 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
-		fmt.Println("Failed to start upload video to cloudflare: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to create cloudflare request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -28,33 +26,22 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("Tus-Resumable", "1.0.0")
 	req.Header.Set("Upload-Length", r.Header.Get("Upload-Length"))
 	req.Header.Set("Upload-Metadata", r.Header.Get("Upload-Metadata"))
+	req.Header.Set("Origin", r.Header.Get("Origin"))
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Failed to start upload video to cloudflare: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to do cloudflare request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusRequestEntityTooLarge {
+		http.Error(w, "Out of storage", http.StatusRequestEntityTooLarge)
+		return
+	}
+
 	if resp.StatusCode != http.StatusCreated {
-		fmt.Println("Failed to start upload video to cloudflare: %v", resp)
-		json.NewEncoder(w).Encode(resp)
-		http.Error(w, "Failed to start upload video to cloudflare", http.StatusNotAcceptable)
-		return
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Failed to start upload video to cloudflare: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		fmt.Println("Failed to start upload video to cloudflare: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error code from Cloudflare", http.StatusNotAcceptable)
 		return
 	}
 

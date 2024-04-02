@@ -94,6 +94,7 @@ func main() {
 
 	upload.Handle("/cf/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareStatus))).Methods(http.MethodGet)
 	upload.Handle("/cf/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpload))).Methods(http.MethodPost)
+	upload.Handle("/cf/{id}/generateDownload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareDownload))).Methods(http.MethodPost)
 
 	// Create Queries
 
@@ -108,7 +109,7 @@ func main() {
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
 
-	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Accept", "Cookie", "X-CSRF-Token", "Tus-Resumable", "Upload-Length", "Upload-Metadata"})
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Cookies", "Accept", "Cookie", "X-CSRF-Token", "Tus-Resumable", "Upload-Length", "Upload-Metadata"})
 	originsOk := handlers.AllowedOrigins([]string{"*"})
 	allowCredentials := handlers.AllowCredentials()
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
