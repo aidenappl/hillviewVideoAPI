@@ -18,6 +18,7 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
+		fmt.Println("Failed to start upload video to cloudflare: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -30,24 +31,29 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		fmt.Println("Failed to start upload video to cloudflare: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
+		fmt.Println("Failed to start upload video to cloudflare: %v", resp)
+		json.NewEncoder(w).Encode(resp)
 		http.Error(w, "Failed to start upload video to cloudflare", http.StatusNotAcceptable)
 		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		fmt.Println("Failed to start upload video to cloudflare: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Println("Failed to start upload video to cloudflare: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

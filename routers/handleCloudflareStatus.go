@@ -10,6 +10,9 @@ import (
 )
 
 func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("HandleCloudflareStatus")
+
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -45,5 +48,6 @@ func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Forward the response from Cloudflare
+	w.WriteHeader(resp.StatusCode)
 	w.Write(body)
 }
