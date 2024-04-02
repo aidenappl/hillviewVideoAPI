@@ -108,8 +108,9 @@ func main() {
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
 
-	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Accept", "X-CSRF-Token"})
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Accept", "Cookie", "X-CSRF-Token"})
 	originsOk := handlers.AllowedOrigins([]string{"*"})
+	allowCredentials := handlers.AllowCredentials()
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
-	log.Fatal(http.ListenAndServe(":"+env.Port, handlers.CORS(originsOk, headersOk, methodsOk)(primary)))
+	log.Fatal(http.ListenAndServe(":"+env.Port, handlers.CORS(originsOk, headersOk, methodsOk, allowCredentials)(primary)))
 }
