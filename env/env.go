@@ -14,6 +14,7 @@ var (
 	AWSSecret       = getEnvOrPanic("AWS_SECRET_ACCESS_KEY")
 	CloudflareUID   = getEnvOrPanic("CLOUDFLARE_UID")
 	CloudflareKey   = getEnvOrPanic("CLOUDFLARE_KEY")
+	CloudflareToken = getEnvOrPanic("CLOUDFLARE_TOKEN")
 	CloudflareEmail = getEnvOrPanic("CLOUDFLARE_EMAIL")
 )
 

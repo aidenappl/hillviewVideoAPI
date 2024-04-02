@@ -58,6 +58,10 @@
         {
           "name": "CLOUDFLARE_EMAIL",
           "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_EMAIL"
+        },
+        {
+          "name": "CLOUDFLARE_TOKEN",
+          "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_TOKEN"
         }
       ],
       "logConfiguration": {

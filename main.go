@@ -92,6 +92,9 @@ func main() {
 	upload.Handle("/video", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleVideoUpload))).Methods(http.MethodPost)
 	upload.Handle("/thumbnail", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleThumbnailUpload))).Methods(http.MethodPost)
 
+	upload.Handle("/cf/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareStatus))).Methods(http.MethodGet)
+	upload.Handle("/cf/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpload))).Methods(http.MethodPost)
+
 	// Create Queries
 
 	create := r.PathPrefix("/create").Subrouter()
