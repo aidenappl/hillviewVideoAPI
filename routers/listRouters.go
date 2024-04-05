@@ -32,6 +32,8 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid sort param", http.StatusBadRequest)
 			return
 		}
+	} else {
+		sort = "desc"
 	}
 
 	limitInt, err := strconv.ParseUint(string(limit), 10, 64)
