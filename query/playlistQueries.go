@@ -11,11 +11,21 @@ import (
 type ListPlaylistsRequest struct {
 	Limit  uint64
 	Offset uint64
+	Sort   *string
 }
 
 func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlist, error) {
 
 	var playlists []structs.Playlist
+
+	if req.Sort == nil {
+		sort := "desc"
+		req.Sort = &sort
+	} else {
+		if *req.Sort != "asc" && *req.Sort != "desc" {
+			return nil, fmt.Errorf("invalid sort value: %s", *req.Sort)
+		}
+	}
 
 	q := sq.Select(
 		"playlists.id",
@@ -26,6 +36,7 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 		"playlists.inserted_at",
 	).
 		From("playlists").
+		OrderBy("playlists.id " + *req.Sort).
 		Where(sq.Eq{"playlists.status": 1})
 
 	query, args, err := q.ToSql()

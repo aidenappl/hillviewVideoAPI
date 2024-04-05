@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/query"
@@ -12,6 +13,7 @@ import (
 func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 	limit := r.URL.Query().Get("limit")
 	offset := r.URL.Query().Get("offset")
+	sort := r.URL.Query().Get("sort")
 	_ = r.URL.Query().Get("search")
 
 	if len(limit) == 0 {
@@ -22,6 +24,14 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 	if len(offset) == 0 {
 		http.Error(w, "missing offset param", http.StatusBadRequest)
 		return
+	}
+
+	if len(sort) != 0 {
+		sort = strings.ToLower(sort)
+		if sort != "asc" && sort != "desc" {
+			http.Error(w, "invalid sort param", http.StatusBadRequest)
+			return
+		}
 	}
 
 	limitInt, err := strconv.ParseUint(string(limit), 10, 64)
@@ -38,6 +48,7 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 
 	playlists, err := query.ListPlaylists(db.DB, query.ListPlaylistsRequest{
 		Limit:  limitInt,
+		Sort:   &sort,
 		Offset: offsetInt,
 	})
 	if err != nil {

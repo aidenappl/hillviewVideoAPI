@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/hillview.tv/videoAPI/db"
@@ -95,6 +96,7 @@ type ListVideosRequest struct {
 	Limit      *uint64
 	Offset     *uint64
 	Search     *string
+	Sort       *string
 	PlaylistID *int
 }
 
@@ -108,6 +110,16 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 	if req.Offset == nil {
 		req.Offset = new(uint64)
 		*req.Offset = 0
+	}
+
+	if req.Sort != nil {
+		*req.Sort = strings.ToLower(*req.Sort)
+		if *req.Sort != "asc" && *req.Sort != "desc" {
+			return nil, fmt.Errorf("invalid sort value: %s", *req.Sort)
+		}
+	} else {
+		req.Sort = new(string)
+		*req.Sort = "desc"
 	}
 
 	q := sq.Select(
@@ -127,7 +139,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
-		OrderBy("videos.id DESC").
+		OrderBy("videos.id " + *req.Sort).
 		Where(sq.Eq{"video_statuses.id": 1}).
 		Limit(*req.Limit).
 		Offset(*req.Offset)
