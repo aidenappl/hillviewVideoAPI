@@ -64,6 +64,8 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 	limit := r.URL.Query().Get("limit")
 	offset := r.URL.Query().Get("offset")
+	sort := r.URL.Query().Get("sort")
+	by := r.URL.Query().Get("by")
 	searchQuery := r.URL.Query().Get("search")
 
 	if len(limit) == 0 {
@@ -74,6 +76,26 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 	if len(offset) == 0 {
 		http.Error(w, "missing offset param", http.StatusBadRequest)
 		return
+	}
+
+	if len(sort) != 0 {
+		sort = strings.ToLower(sort)
+		if sort != "asc" && sort != "desc" {
+			http.Error(w, "invalid sort param", http.StatusBadRequest)
+			return
+		}
+	} else {
+		sort = "desc"
+	}
+
+	if len(by) != 0 {
+		by = strings.ToLower(by)
+		if by != "date" && by != "views" {
+			http.Error(w, "invalid by param", http.StatusBadRequest)
+			return
+		}
+	} else {
+		by = "date"
 	}
 
 	var search *string
@@ -97,6 +119,8 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 		Limit:  &limitInt,
 		Offset: &offsetInt,
 		Search: search,
+		By:     by,
+		Sort:   &sort,
 	})
 	if err != nil {
 		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)

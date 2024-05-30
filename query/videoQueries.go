@@ -97,6 +97,7 @@ type ListVideosRequest struct {
 	Offset     *uint64
 	Search     *string
 	Sort       *string
+	By         *string
 	PlaylistID *int
 }
 
@@ -122,6 +123,16 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 		*req.Sort = "desc"
 	}
 
+	if req.By != nil {
+		*req.By = strings.ToLower(*req.By)
+		if *req.By != "date" && *req.By != "views" {
+			return nil, fmt.Errorf("invalid by value: %s", *req.By)
+		}
+	} else {
+		req.By = new(string)
+		*req.By = "date"
+	}
+
 	q := sq.Select(
 		"videos.id",
 		"videos.uuid",
@@ -136,13 +147,24 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 		"video_statuses.id",
 		"video_statuses.name",
 		"video_statuses.short_name",
+
+		"COUNT(video_views.video_id) as views",
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
-		OrderBy("videos.id " + *req.Sort).
+		LeftJoin("video_views ON videos.id = video_views.video_id").
+		GroupBy("videos.id").
 		Where(sq.Eq{"video_statuses.id": 1}).
 		Limit(*req.Limit).
 		Offset(*req.Offset)
+
+	if *req.By == "date" {
+		q = q.OrderBy("videos.inserted_at " + *req.Sort)
+	} else if *req.By == "views" {
+		q = q.OrderBy("views " + *req.Sort)
+	} else {
+		q = q.OrderBy("videos.id " + *req.Sort)
+	}
 
 	if req.Search != nil {
 		q = q.Where(
