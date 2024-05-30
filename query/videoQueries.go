@@ -212,6 +212,8 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 			&status.ID,
 			&status.Name,
 			&status.ShortName,
+
+			&video.Views,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
