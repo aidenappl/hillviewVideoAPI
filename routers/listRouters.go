@@ -119,7 +119,7 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 		Limit:  &limitInt,
 		Offset: &offsetInt,
 		Search: search,
-		By:     by,
+		By:     &by,
 		Sort:   &sort,
 	})
 	if err != nil {
