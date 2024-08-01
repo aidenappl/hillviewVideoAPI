@@ -37,12 +37,10 @@ func CreateNewsletterSignup(db db.Queryable, req CreateNewsletterSignupRequest) 
 		return fmt.Errorf("failed to execute query: %w", err)
 	}
 
-	id, err := result.LastInsertId()
+	_, err = result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("failed to get last insert id: %w", err)
 	}
-
-	fmt.Println(id)
 
 	return nil
 }
