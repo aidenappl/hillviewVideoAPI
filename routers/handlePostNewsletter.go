@@ -2,7 +2,6 @@ package routers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"net/mail"
@@ -49,7 +48,7 @@ func HandlePostNewsletter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send confirmation email
-	mailerResponse, err := mailer.SendTemplate(mailer.SendTemplateRequest{
+	_, err = mailer.SendTemplate(mailer.SendTemplateRequest{
 		TemplateID: "d-d9c9c4be63c74755b3512084c96e5da6",
 		FromEmail:  "notifications@hillview.tv",
 		FromName:   "HillviewTV Notifications",
@@ -65,8 +64,6 @@ func HandlePostNewsletter(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("failed to send email! ", err.Error())
 	}
-
-	fmt.Println(mailerResponse)
 
 	// Success response
 	w.WriteHeader(http.StatusNoContent)
