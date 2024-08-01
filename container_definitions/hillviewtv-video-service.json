@@ -62,6 +62,10 @@
         {
           "name": "CLOUDFLARE_TOKEN",
           "valueFrom": "/env/hillviewtv-video-service/CLOUDFLARE_TOKEN"
+        },
+        {
+          "name": "SENDGRID_API_KEY",
+          "valueFrom": "/env/hillviewtv-core-service/SENDGRID_API_KEY"
         }
       ],
       "logConfiguration": {
