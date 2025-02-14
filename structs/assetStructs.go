@@ -33,12 +33,6 @@ type AssetMetadata struct {
 	Notes        *string `json:"notes"`
 }
 
-type GeneralNSN struct {
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	ShortName string `json:"short_name"`
-}
-
 type Checkout struct {
 	ID             int         `json:"id"`
 	User           *MobileUser `json:"user"`
