@@ -108,6 +108,7 @@ func main() {
 	r.HandleFunc("/video/{query}", routers.HandleGetVideo).Methods(http.MethodGet)
 	r.HandleFunc("/newsletter", routers.HandlePostNewsletter).Methods(http.MethodPost)
 	r.HandleFunc("/newsletter/unsubscribe", routers.HandleUnsubscribeNewsletter).Methods(http.MethodPost)
+	r.HandleFunc("/spotlight", routers.HandleSpotlightList).Methods(http.MethodGet)
 
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
