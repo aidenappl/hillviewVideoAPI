@@ -105,6 +105,7 @@ func main() {
 
 	// V2.1 Endpoints
 	r.HandleFunc("/recordView/{query}", routers.HandleRecordView).Methods(http.MethodPost)
+	r.HandleFunc("/recordDownload/{query}", routers.HandleRecordDownload).Methods(http.MethodPost)
 	r.HandleFunc("/video/{query}", routers.HandleGetVideo).Methods(http.MethodGet)
 	r.HandleFunc("/newsletter", routers.HandlePostNewsletter).Methods(http.MethodPost)
 	r.HandleFunc("/newsletter/unsubscribe", routers.HandleUnsubscribeNewsletter).Methods(http.MethodPost)
