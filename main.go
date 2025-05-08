@@ -93,6 +93,7 @@ func main() {
 	upload.Handle("/thumbnail", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleThumbnailUpload))).Methods(http.MethodPost)
 
 	upload.Handle("/cf/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareStatus))).Methods(http.MethodGet)
+	upload.Handle("/cf/{id}/download", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareDownloadStatus))).Methods(http.MethodGet)
 	upload.Handle("/cf/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpdate))).Methods(http.MethodPost)
 	upload.Handle("/cf/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpload))).Methods(http.MethodPost)
 	upload.Handle("/cf/{id}/generateDownload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareDownload))).Methods(http.MethodPost)

@@ -9,7 +9,7 @@ import (
 	"github.com/hillview.tv/videoAPI/env"
 )
 
-func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
+func HandleCloudflareDownloadStatus(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	id := params["id"]
