@@ -52,7 +52,6 @@ func main() {
 	}
 
 	// Define the API Endpoints
-
 	r := primary.PathPrefix("/video/v1.1").Subrouter()
 
 	// Logging of requests
