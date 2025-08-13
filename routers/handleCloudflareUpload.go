@@ -1,11 +1,11 @@
 package routers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/hillview.tv/videoAPI/env"
+	"github.com/hillview.tv/videoAPI/responder"
 )
 
 func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +49,6 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Expose-Headers", "Location")
 	w.Header().Set("Location", location)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"location": location})
+	responder.New(w, map[string]string{"location": location})
 
 }

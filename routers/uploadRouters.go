@@ -18,7 +18,6 @@ import (
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/awsBridge"
 	"github.com/hillview.tv/videoAPI/env"
-	"github.com/hillview.tv/videoAPI/errors"
 	"github.com/hillview.tv/videoAPI/middleware"
 	"github.com/hillview.tv/videoAPI/responder"
 )
@@ -48,7 +47,7 @@ func RandStringBytesMaskImpr(n int) string {
 	return string(b)
 }
 
-type VideoUplaodResponse struct {
+type VideoUploadResponse struct {
 	URL       string `json:"url"`
 	Thumbnail string `json:"thumbnail"`
 	S3Url     string `json:"s3_url"`
@@ -105,7 +104,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	resetMultipart := func(w http.ResponseWriter) {
 		files, err := ioutil.ReadDir("/tmp")
 		if err != nil {
-			errors.SendError(w, "failed to clear tmp: "+err.Error(), http.StatusBadRequest)
+			responder.SendError(w, http.StatusBadRequest, "failed to clear tmp: "+err.Error())
 			return
 		}
 		res := &[]string{}
@@ -120,7 +119,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Get the claims from the context
 	claims := middleware.WithClaimsValue(r.Context())
 	if claims == nil {
-		errors.SendError(w, "Missing Authorization token", http.StatusUnauthorized)
+		responder.SendError(w, http.StatusUnauthorized, "Missing Authorization token")
 		resetMultipart(w)
 		return
 	}
@@ -128,7 +127,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Convert the subject to an int
 	sub, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		errors.SendError(w, "failed to get subject: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to get subject: "+err.Error())
 		resetMultipart(w)
 		return
 	}
@@ -136,7 +135,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Get the file from the form data
 	file, fileHeader, err := r.FormFile("upload")
 	if err != nil {
-		errors.SendError(w, "failed to get formfile: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to get formfile: "+err.Error())
 		resetMultipart(w)
 		return
 	}
@@ -151,7 +150,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Upload the temporary file to s3
 	response, err := actions.UploadMultipart(file, fileHeader, generated)
 	if err != nil {
-		errors.SendError(w, "failed to upload to s3: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to upload to s3: "+err.Error())
 		resetMultipart(w)
 		return
 	}
@@ -167,7 +166,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		ThumbnailTimestampPct: 0.5,
 	})
 	if err != nil {
-		errors.SendError(w, "failed to marshal the post body: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to marshal the post body: "+err.Error())
 		resetMultipart(w)
 		return
 	}
@@ -177,7 +176,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
 	if err != nil {
-		errors.SendError(w, "failed to create post to cloudflare: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to create post to cloudflare: "+err.Error())
 		resetMultipart(w)
 		return
 	}
@@ -185,7 +184,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("X-Auth-Key", env.CloudflareKey)
 	res, err := client.Do(req)
 	if err != nil {
-		errors.SendError(w, "failed to execute post to cloudflare: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to execute post to cloudflare: "+err.Error())
 		resetMultipart(w)
 		return
 	}
@@ -196,13 +195,13 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	body := CloudflareResponse{}
 	err = json.NewDecoder(res.Body).Decode(&body)
 	if err != nil {
-		errors.SendError(w, "failed to decode body from cloudflare: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to decode body from cloudflare: "+err.Error())
 		resetMultipart(w)
 		return
 	}
 
 	if !body.Success {
-		errors.SendError(w, "something went wrong in the cloudflare response: "+body.Errors[0].(string), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "something went wrong in the cloudflare response: "+body.Errors[0].(string))
 		resetMultipart(w)
 		return
 	}
@@ -210,11 +209,11 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	resetMultipart(w)
 
 	// return the url of the uploaded file
-	json.NewEncoder(w).Encode(responder.New(VideoUplaodResponse{
+	responder.New(w, VideoUploadResponse{
 		URL:       body.Result.Playback.Hls,
 		Thumbnail: body.Result.Thumbnail,
 		S3Url:     "https://content.hillview.tv/videos/uploads/" + generated,
-	}))
+	})
 }
 
 type ThumbnailUploadResponse struct {
@@ -225,13 +224,13 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 
 	claims := middleware.WithClaimsValue(r.Context())
 	if claims == nil {
-		errors.SendError(w, "missing Authorization token", http.StatusUnauthorized)
+		responder.ParamError(w, "Authorization")
 		return
 	}
 
 	sub, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		errors.SendError(w, "failed to get subject: "+err.Error(), http.StatusBadRequest)
+		responder.SendError(w, http.StatusBadRequest, "failed to get subject: "+err.Error())
 		return
 	}
 
@@ -239,7 +238,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 	uploader := s3manager.NewUploader(sessionHandler)
 	file, _, err := r.FormFile("upload")
 	if err != nil {
-		errors.SendError(w, "failed to get formfile: "+err.Error(), http.StatusBadRequest)
+		responder.BadBody(w, err)
 		return
 	}
 
@@ -256,12 +255,12 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 		ContentType: aws.String("image/jpeg"),
 	})
 	if err != nil {
-		errors.SendError(w, "failed to upload to s3: "+err.Error(), http.StatusBadRequest)
+		responder.ErrInternal(w, err)
 		return
 	}
 
-	json.NewEncoder(w).Encode(responder.New(ThumbnailUploadResponse{
+	responder.New(w, ThumbnailUploadResponse{
 		URL: "https://content.hillview.tv/thumbnails/" + generated,
-	}))
+	}, "Thumbnail uploaded successfully")
 
 }

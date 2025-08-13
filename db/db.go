@@ -27,6 +27,18 @@ var DB = func() *sql.DB {
 	return db
 }()
 
+func PingDB() error {
+	db, err := sql.Open("mysql", env.DatabaseDSN)
+	if err != nil {
+		return err
+	}
+
+	ping := db.Ping()
+	db.Close()
+
+	return ping
+}
+
 type Queryable interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Prepare(query string) (*sql.Stmt, error)

@@ -7,9 +7,9 @@ import (
 	"net/mail"
 
 	"github.com/hillview.tv/videoAPI/db"
-	"github.com/hillview.tv/videoAPI/errors"
 	"github.com/hillview.tv/videoAPI/mailer"
 	"github.com/hillview.tv/videoAPI/query"
+	"github.com/hillview.tv/videoAPI/responder"
 )
 
 type HandlePostNewsletterRequest struct {
@@ -21,20 +21,20 @@ func HandlePostNewsletter(w http.ResponseWriter, r *http.Request) {
 	body := HandlePostNewsletterRequest{}
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		errors.SendError(w, err.Error(), http.StatusBadRequest)
+		responder.BadBody(w, err)
 		return
 	}
 
 	// Validate that the email exists
 	if body.Email == nil || len(*body.Email) == 0 {
-		errors.SendError(w, "missing email in the body", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "email")
 		return
 	}
 
 	// Validate email
 	_, err = mail.ParseAddress(*body.Email)
 	if err != nil {
-		errors.SendError(w, "invalid email address in the body", http.StatusBadRequest)
+		responder.ErrInvalidBodyField(w, "email", err)
 		return
 	}
 
@@ -43,7 +43,7 @@ func HandlePostNewsletter(w http.ResponseWriter, r *http.Request) {
 		Email: body.Email,
 	})
 	if err != nil {
-		errors.SendError(w, err.Error(), http.StatusConflict)
+		responder.ErrConflict(w, err)
 		return
 	}
 
@@ -67,5 +67,4 @@ func HandlePostNewsletter(w http.ResponseWriter, r *http.Request) {
 
 	// Success response
 	w.WriteHeader(http.StatusNoContent)
-
 }

@@ -1,13 +1,13 @@
 package routers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/query"
+	"github.com/hillview.tv/videoAPI/responder"
 )
 
 type GetVideoRequest struct {
@@ -55,6 +55,6 @@ func HandleGetVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(video)
+	responder.New(w, video, "Video retrieved successfully")
 
 }

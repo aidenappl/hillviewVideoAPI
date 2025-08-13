@@ -1,7 +1,6 @@
 package routers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -17,24 +16,24 @@ func HandleSpotlightList(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	limit := params.Get("limit")
 	if limit == "" {
-		json.NewEncoder(w).Encode(responder.Error("missing limit"))
+		responder.ParamError(w, "limit")
 		return
 	} else {
 		l, err := strconv.Atoi(limit)
 		if err != nil {
-			json.NewEncoder(w).Encode(responder.Error("invalid limit"))
+			responder.ParamError(w, "limit")
 			return
 		}
 		q.Limit = &l
 	}
 	offset := params.Get("offset")
 	if offset == "" {
-		json.NewEncoder(w).Encode(responder.Error("missing offset"))
+		responder.ParamError(w, "offset")
 		return
 	} else {
 		o, err := strconv.Atoi(offset)
 		if err != nil {
-			json.NewEncoder(w).Encode(responder.Error("invalid offset"))
+			responder.ParamError(w, "offset")
 			return
 		}
 		q.Offset = &o
@@ -42,9 +41,9 @@ func HandleSpotlightList(w http.ResponseWriter, r *http.Request) {
 
 	spotlights, err := query.ListSpotlights(db.DB, q)
 	if err != nil {
-		json.NewEncoder(w).Encode(responder.Error(err.Error()))
+		responder.SendError(w, http.StatusInternalServerError, "failed to list spotlights", err)
 		return
 	}
 
-	json.NewEncoder(w).Encode(responder.New(spotlights))
+	responder.New(w, spotlights)
 }

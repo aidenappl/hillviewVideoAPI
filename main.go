@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
 	"github.com/hillview.tv/videoAPI/routers"
@@ -42,6 +43,13 @@ func main() {
 	primary.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
+
+	// Ping DB
+	if err := db.PingDB(); err != nil {
+		log.Fatalf("❌ Failed to connect to the database: %v", err)
+	} else {
+		log.Println("✅ Connected to the database successfully")
+	}
 
 	// Define the API Endpoints
 

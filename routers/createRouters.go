@@ -6,6 +6,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/query"
+	"github.com/hillview.tv/videoAPI/responder"
 )
 
 type VideoCreateRequest struct {
@@ -49,5 +50,5 @@ func HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(upload)
+	responder.New(w, upload)
 }

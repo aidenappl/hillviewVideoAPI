@@ -1,13 +1,13 @@
 package routers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/query"
+	"github.com/hillview.tv/videoAPI/responder"
 )
 
 func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +58,7 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(playlists)
+	responder.New(w, playlists, "Playlists retrieved successfully")
 }
 
 func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
@@ -127,5 +127,5 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(videos)
+	responder.New(w, videos, "Videos retrieved successfully")
 }
