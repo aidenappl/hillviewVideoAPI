@@ -17,6 +17,7 @@ var (
 	CloudflareToken = getEnvOrPanic("CLOUDFLARE_TOKEN")
 	CloudflareEmail = getEnvOrPanic("CLOUDFLARE_EMAIL")
 	SendgridAPIKey  = getEnvOrPanic("SENDGRID_API_KEY")
+	HealthCheckURL  = getEnvOrPanic("HEALTH_CHECK_URL")
 )
 
 func getEnv(key string, fallback string) string {

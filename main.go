@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/background"
 	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
 	"github.com/hillview.tv/videoAPI/routers"
@@ -62,6 +64,10 @@ func main() {
 
 	// Track & Update Last Active
 	r.Use(middleware.TokenHandlers)
+
+	// Add context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Clear all temporary files
 	filenames, err := FilterDir("/tmp")
@@ -121,6 +127,9 @@ func main() {
 
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
+
+	// Add the health check polling
+	go background.StartHealthCheckPolling(ctx)
 
 	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Cookies", "Accept", "Cookie", "X-CSRF-Token", "Tus-Resumable", "Upload-Length", "Upload-Metadata"})
 	originsOk := handlers.AllowedOrigins([]string{"*"})
