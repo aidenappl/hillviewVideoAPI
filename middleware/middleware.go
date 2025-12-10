@@ -11,6 +11,7 @@ import (
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/jwt"
 	"github.com/hillview.tv/videoAPI/query"
+	"github.com/hillview.tv/videoAPI/responder"
 	"github.com/hillview.tv/videoAPI/structs"
 )
 
@@ -116,13 +117,13 @@ func AccessTokenMiddleware(next http.Handler) http.Handler {
 		splitToken := strings.Split(rawToken, "Bearer ")
 
 		if len(splitToken) != 2 {
-			w.WriteHeader(http.StatusUnauthorized)
+			responder.SendError(w, http.StatusUnauthorized, "Missing Authorization token")
 			return
 		}
 		rawToken = splitToken[1]
 
 		if len(rawToken) < 1 {
-			http.Error(w, "Missing Authorization token", http.StatusUnauthorized)
+			responder.SendError(w, http.StatusUnauthorized, "Missing Authorization token")
 			return
 		}
 
@@ -130,9 +131,9 @@ func AccessTokenMiddleware(next http.Handler) http.Handler {
 		token, err := jwt.ParseJWT(rawToken)
 		if err != nil {
 			if strings.Contains(err.Error(), "token is expired") {
-				http.Error(w, "Token is expired", http.StatusUnauthorized)
+				responder.SendError(w, http.StatusUnauthorized, "Token is expired")
 			} else {
-				http.Error(w, err.Error(), http.StatusUnauthorized)
+				responder.SendError(w, http.StatusUnauthorized, "failed to parse token", err)
 			}
 			return
 		}
@@ -141,19 +142,19 @@ func AccessTokenMiddleware(next http.Handler) http.Handler {
 
 		claimsValid, resp, err := jwt.ValidJWT(r.Context(), rawToken, claims, &jwt.HVJwtClaims{Type: jwt.AccessToken})
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			responder.SendError(w, http.StatusUnauthorized, "failed to parse token", err)
 			return
 		}
 
 		if !claimsValid {
 			if resp.Expired {
-				http.Error(w, "Token is expired", http.StatusUnauthorized)
+				responder.SendError(w, http.StatusUnauthorized, "Token is expired")
 			}
 			if resp.Revoked {
-				http.Error(w, "Token is revoked", http.StatusUnauthorized)
+				responder.SendError(w, http.StatusUnauthorized, "Token is revoked")
 			}
 			if resp.InvalidIssuer || resp.Err || resp.Invalid {
-				http.Error(w, "Invalid token, bad issuer, response, or invalid", http.StatusUnauthorized)
+				responder.SendError(w, http.StatusUnauthorized, "Invalid token, bad issuer, response, or invalid")
 			}
 			return
 		}
@@ -161,14 +162,14 @@ func AccessTokenMiddleware(next http.Handler) http.Handler {
 		userID, err := strconv.Atoi(claims.Subject)
 		if err != nil {
 			log.Println("failed to convert user id to int", err.Error())
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			responder.SendError(w, http.StatusUnauthorized, "Invalid token", err)
 			return
 		}
 
 		user, err := query.FindUser(db.DB, query.FindUserRequest{ID: &userID})
 		if err != nil {
 			log.Println("failed to find user by id", err.Error())
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			responder.SendError(w, http.StatusUnauthorized, "Invalid token", err)
 			return
 		}
 

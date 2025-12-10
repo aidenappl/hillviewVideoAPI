@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -15,13 +16,13 @@ func HandleVideoRead(w http.ResponseWriter, r *http.Request) {
 	id := params["id"]
 
 	if len(id) == 0 {
-		http.Error(w, "missing id param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "id")
 		return
 	}
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, "failed to convert string to int: "+err.Error(), http.StatusInternalServerError)
+		responder.ErrInvalidBodyField(w, "id", errors.New("id is invalid"))
 		return
 	}
 
@@ -29,7 +30,7 @@ func HandleVideoRead(w http.ResponseWriter, r *http.Request) {
 		ID: &idInt,
 	})
 	if err != nil {
-		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to execute query", err)
 		return
 	}
 
@@ -51,7 +52,7 @@ func HandlePlaylistRead(w http.ResponseWriter, r *http.Request) {
 	if len(id) != 0 {
 		intrn, err := strconv.Atoi(id)
 		if err != nil {
-			http.Error(w, "failed to convert string to int: "+err.Error(), http.StatusInternalServerError)
+			responder.ErrInvalidBodyField(w, "id", errors.New("failed to convert string to int: "+err.Error()))
 			return
 		}
 		idInt = &intrn
@@ -62,7 +63,7 @@ func HandlePlaylistRead(w http.ResponseWriter, r *http.Request) {
 		Route: route,
 	})
 	if err != nil {
-		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to execute query", err)
 		return
 	}
 

@@ -17,7 +17,7 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
-		http.Error(w, "Failed to create cloudflare request: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "Failed to create cloudflare request", err)
 		return
 	}
 
@@ -30,18 +30,18 @@ func HandleCloudflareUpload(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to do cloudflare request: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "Failed to do cloudflare request", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusRequestEntityTooLarge {
-		http.Error(w, "Out of storage", http.StatusRequestEntityTooLarge)
+		responder.SendError(w, http.StatusRequestEntityTooLarge, "Out of storage", nil)
 		return
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		http.Error(w, "Error code from Cloudflare", http.StatusNotAcceptable)
+		responder.SendError(w, http.StatusNotAcceptable, "Error code from Cloudflare", nil)
 		return
 	}
 

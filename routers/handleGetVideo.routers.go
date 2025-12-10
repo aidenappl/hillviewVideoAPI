@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -23,7 +24,7 @@ func HandleGetVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Convert the query params to the correct type
 	if q == "" {
-		http.Error(w, "missing 'query' param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "query")
 		return
 	} else {
 		idInt, err := strconv.Atoi(q)
@@ -36,7 +37,7 @@ func HandleGetVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Check if the request is valid
 	if req.ID == nil && req.UUID == nil {
-		http.Error(w, "missing 'id' or 'uuid' query param", http.StatusBadRequest)
+		responder.ErrInvalidBodyField(w, "id or uuid", errors.New("either id or uuid must be provided"))
 		return
 	}
 
@@ -46,12 +47,12 @@ func HandleGetVideo(w http.ResponseWriter, r *http.Request) {
 		UUID: req.UUID,
 	})
 	if err != nil {
-		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to execute query", err)
 		return
 	}
 
 	if video == nil {
-		http.Error(w, "video not found", http.StatusNotFound)
+		responder.SendError(w, http.StatusNotFound, "video not found", nil)
 		return
 	}
 

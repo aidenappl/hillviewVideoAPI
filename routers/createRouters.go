@@ -20,22 +20,22 @@ func HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 	body := VideoCreateRequest{}
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		responder.BadBody(w, err)
 		return
 	}
 
 	if body.Title == nil || len(*body.Title) == 0 {
-		http.Error(w, "Missing title", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "title")
 		return
 	}
 
 	if body.URL == nil || len(*body.URL) == 0 {
-		http.Error(w, "Missing URL", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "url")
 		return
 	}
 
 	if body.Description == nil || len(*body.Description) == 0 {
-		http.Error(w, "Missing description", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "description")
 		return
 	}
 
@@ -46,7 +46,7 @@ func HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		Thumbnail:   body.Thumbnail,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to create video", err)
 		return
 	}
 

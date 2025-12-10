@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,19 +18,19 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 	_ = r.URL.Query().Get("search")
 
 	if len(limit) == 0 {
-		http.Error(w, "missing limit param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "limit")
 		return
 	}
 
 	if len(offset) == 0 {
-		http.Error(w, "missing offset param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "offset")
 		return
 	}
 
 	if len(sort) != 0 {
 		sort = strings.ToLower(sort)
 		if sort != "asc" && sort != "desc" {
-			http.Error(w, "invalid sort param", http.StatusBadRequest)
+			responder.ErrInvalidBodyField(w, "invalid sort param", errors.New("sort must be 'asc' or 'desc'"))
 			return
 		}
 	} else {
@@ -38,13 +39,13 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 
 	limitInt, err := strconv.ParseUint(string(limit), 10, 64)
 	if err != nil {
-		http.Error(w, "invalid limit param", http.StatusBadRequest)
+		responder.ErrInvalidBodyField(w, "limit", errors.New("invalid limit param"))
 		return
 	}
 
 	offsetInt, err := strconv.ParseUint(string(offset), 10, 64)
 	if err != nil {
-		http.Error(w, "invalid offset param", http.StatusBadRequest)
+		responder.ErrInvalidBodyField(w, "offset", errors.New("invalid offset param"))
 		return
 	}
 
@@ -54,7 +55,7 @@ func HandlePlaylistLists(w http.ResponseWriter, r *http.Request) {
 		Offset: offsetInt,
 	})
 	if err != nil {
-		http.Error(w, "error querying playlists", http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "error querying playlists", err)
 		return
 	}
 
@@ -69,19 +70,19 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 	searchQuery := r.URL.Query().Get("search")
 
 	if len(limit) == 0 {
-		http.Error(w, "missing limit param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "limit")
 		return
 	}
 
 	if len(offset) == 0 {
-		http.Error(w, "missing offset param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "offset")
 		return
 	}
 
 	if len(sort) != 0 {
 		sort = strings.ToLower(sort)
 		if sort != "asc" && sort != "desc" {
-			http.Error(w, "invalid sort param", http.StatusBadRequest)
+			responder.ErrInvalidBodyField(w, "invalid sort param", errors.New("sort must be 'asc' or 'desc'"))
 			return
 		}
 	} else {
@@ -91,7 +92,7 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 	if len(by) != 0 {
 		by = strings.ToLower(by)
 		if by != "date" && by != "views" {
-			http.Error(w, "invalid by param", http.StatusBadRequest)
+			responder.ErrInvalidBodyField(w, "invalid by param", errors.New("by must be 'date' or 'views'"))
 			return
 		}
 	} else {
@@ -105,13 +106,13 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 
 	limitInt, err := strconv.ParseUint(string(limit), 10, 64)
 	if err != nil {
-		http.Error(w, "failed to convert string to int: "+err.Error(), http.StatusInternalServerError)
+		responder.ErrInvalidBodyField(w, "limit", errors.New("failed to convert string to int: "+err.Error()))
 		return
 	}
 
 	offsetInt, err := strconv.ParseUint(string(offset), 10, 64)
 	if err != nil {
-		http.Error(w, "failed to convert string to int: "+err.Error(), http.StatusInternalServerError)
+		responder.ErrInvalidBodyField(w, "offset", errors.New("failed to convert string to int: "+err.Error()))
 		return
 	}
 
@@ -123,7 +124,7 @@ func HandleVideoLists(w http.ResponseWriter, r *http.Request) {
 		Sort:   &sort,
 	})
 	if err != nil {
-		http.Error(w, "failed to execute query: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to execute query", err)
 		return
 	}
 

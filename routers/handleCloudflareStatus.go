@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hillview.tv/videoAPI/env"
+	"github.com/hillview.tv/videoAPI/responder"
 )
 
 func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
@@ -15,7 +16,7 @@ func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 	id := params["id"]
 
 	if len(id) == 0 {
-		http.Error(w, "missing id param", http.StatusBadRequest)
+		responder.ErrMissingBodyRequirement(w, "id")
 		return
 	}
 
@@ -26,7 +27,7 @@ func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		http.Error(w, "Failed to create request: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to create request", err)
 		return
 	}
 
@@ -34,18 +35,22 @@ func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to fetch video status: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to fetch video status", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		http.Error(w, "Failed to read response body: "+err.Error(), http.StatusInternalServerError)
+		responder.SendError(w, http.StatusInternalServerError, "failed to read response body", err)
 		return
 	}
 
 	// Forward the response from Cloudflare
-	w.WriteHeader(resp.StatusCode)
-	w.Write(body)
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+		return
+	}
+	responder.New(w, body, "Cloudflare status retrieved successfully")
 }
