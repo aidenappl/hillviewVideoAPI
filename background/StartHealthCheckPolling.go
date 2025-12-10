@@ -16,8 +16,6 @@ func StartHealthCheckPolling(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("🔍 Pinging health check...")
-
 			// Create HTTP client with timeout
 			client := &http.Client{
 				Timeout: 10 * time.Second,
@@ -33,7 +31,7 @@ func StartHealthCheckPolling(ctx context.Context) {
 			resp.Body.Close()
 
 			if resp.StatusCode == http.StatusOK {
-				log.Println("✅ Health check successful")
+				// Health check successful
 			} else {
 				log.Printf("⚠️ Health check returned status: %d", resp.StatusCode)
 			}
