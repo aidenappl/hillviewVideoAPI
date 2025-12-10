@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -49,6 +50,18 @@ func HandleCloudflareUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Forward the response from Cloudflare
-	w.WriteHeader(resp.StatusCode)
-	w.Write(body)
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+		return
+	}
+
+	// Parse the JSON response from Cloudflare
+	var cloudflareResponse map[string]interface{}
+	if err := json.Unmarshal(body, &cloudflareResponse); err != nil {
+		responder.SendError(w, http.StatusInternalServerError, "failed to parse Cloudflare response", err)
+		return
+	}
+
+	responder.New(w, cloudflareResponse, "Cloudflare update initiated successfully")
 }
