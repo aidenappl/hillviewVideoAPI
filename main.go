@@ -12,8 +12,8 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/background"
+	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
 	"github.com/hillview.tv/videoAPI/routers"
@@ -55,6 +55,9 @@ func main() {
 
 	// Define the API Endpoints
 	r := primary.PathPrefix("/video/v1.1").Subrouter()
+
+	// Request ID Middleware
+	r.Use(middleware.RequestIDMiddleware)
 
 	// Logging of requests
 	r.Use(middleware.LoggingMiddleware)
