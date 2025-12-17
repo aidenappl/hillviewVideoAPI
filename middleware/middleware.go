@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/jwt"
 	"github.com/hillview.tv/videoAPI/query"
@@ -20,7 +23,8 @@ type contextKey struct {
 }
 
 var JWTClaimsCtxKey = &contextKey{"jwt_claims"}
-
+var RequestIDKey = &contextKey{"request_id"}
+var ClientIPKey = &contextKey{"client_ip"}
 var UserModelCtxKey = &contextKey{"user_model"}
 
 func WithClaimsValue(ctx context.Context) *jwt.HVJwtClaims {
@@ -41,10 +45,82 @@ func WithUserModelValue(ctx context.Context) *structs.User {
 	return val
 }
 
+// GetClientIP extracts the real client IP from the request,
+// checking common proxy headers first
+func GetClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header (common for proxies/load balancers)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			ip := strings.TrimSpace(ips[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+
+	// Check X-Real-IP header (used by nginx)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+
+	// Check CF-Connecting-IP header (Cloudflare)
+	if cfip := r.Header.Get("CF-Connecting-IP"); cfip != "" {
+		return cfip
+	}
+
+	// Fall back to RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
+}
+
+// GetClientIPFromContext retrieves the client IP from the context
+func GetClientIPFromContext(ctx context.Context) string {
+	if ip, ok := ctx.Value(ClientIPKey).(string); ok {
+		return ip
+	}
+	return "unknown"
+}
+
+// RequestIDMiddleware generates a unique request ID and adds it to the context
+func RequestIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := uuid.New().String()
+		clientIP := GetClientIP(r)
+		ctx := context.WithValue(r.Context(), RequestIDKey, requestID)
+		ctx = context.WithValue(ctx, ClientIPKey, clientIP)
+		w.Header().Set("X-Request-ID", requestID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func Println(ctx context.Context, msg string) {
+	requestID := GetRequestID(ctx)
+	log.Printf("[%s] %s", requestID, msg)
+}
+
+// GetRequestID retrieves the request ID from the context
+func GetRequestID(ctx context.Context) string {
+	if requestID, ok := ctx.Value(RequestIDKey).(string); ok {
+		return requestID
+	}
+	return "unknown"
+}
+
+// LoggingMiddleware logs the request method, URI, and duration with request ID and client IP
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(r.Method, r.RequestURI)
+		start := time.Now()
+		requestID := GetRequestID(r.Context())
+		clientIP := GetClientIPFromContext(r.Context())
+		log.Printf("[%s] [%s] %s %s", requestID, clientIP, r.Method, r.RequestURI)
 		next.ServeHTTP(w, r)
+		duration := time.Since(start)
+		log.Printf("[%s] [%s] [REQUEST FINISH] %s %s - %v", requestID, clientIP, r.Method, r.RequestURI, duration)
 	})
 }
 

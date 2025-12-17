@@ -2,6 +2,7 @@ package responder
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -20,6 +21,8 @@ func SendError(w http.ResponseWriter, status int, errMessage string, err ...erro
 	if len(err) > 0 && err[0] != nil {
 		errResp.Error = err[0].Error()
 	}
+
+	log.Println("[ERROR RESPONSE] " + errResp.ErrorMessage)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
