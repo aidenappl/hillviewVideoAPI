@@ -49,7 +49,7 @@ func SendBasic(req SendBasicMailRequest) (*rest.Response, error) {
 	message.AddPersonalizations(p)
 	response, err := client.Send(message)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send message:", err)
+		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
 	return response, nil

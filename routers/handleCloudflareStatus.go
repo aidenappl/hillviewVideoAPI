@@ -3,7 +3,7 @@ package routers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -41,7 +41,7 @@ func HandleCloudflareStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		responder.SendError(w, http.StatusInternalServerError, "failed to read response body", err)
 		return

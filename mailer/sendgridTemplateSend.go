@@ -34,7 +34,7 @@ func SendTemplate(req SendTemplateRequest) (*rest.Response, error) {
 
 	response, err := client.Send(mailer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send message: ", err)
+		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 	return response, nil
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/env"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -21,13 +21,13 @@ var (
 
 type HVJwtClaims struct {
 	Type string `json:"typ"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 type HVResponseJWT struct {
 	userID int
 	Type   string `json:"typ"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 type ValidTokenResponse struct {
@@ -102,10 +102,10 @@ func newJWT() (*jwt.Token, error) {
 		return nil, fmt.Errorf("error generating uuid for jti: %w", err)
 	}
 	claims := &HVJwtClaims{
-		StandardClaims: jwt.StandardClaims{
-			Audience: "",
-			Id:       jti.String(),
-			IssuedAt: time.Now().Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Audience: jwt.ClaimStrings{},
+			ID:       jti.String(),
+			IssuedAt: jwt.NewNumericDate(time.Now()),
 			Issuer:   "hillview:auth-service",
 		},
 	}
@@ -144,7 +144,7 @@ func NewAccessJWT(userID int) (string, error) {
 	claims := token.Claims.(*HVJwtClaims)
 	claims.Type = "access_token"
 	claims.Subject = strconv.Itoa(userID)
-	claims.ExpiresAt = claims.IssuedAt + int64(JWTExpiresIn)
+	claims.ExpiresAt = jwt.NewNumericDate(claims.IssuedAt.Time.Add(time.Duration(JWTExpiresIn) * time.Second))
 
 	token.Claims = claims
 

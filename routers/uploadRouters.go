@@ -3,7 +3,6 @@ package routers
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -102,7 +101,7 @@ type CloudflareRequest struct {
 func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 
 	resetMultipart := func(w http.ResponseWriter) {
-		files, err := ioutil.ReadDir("/tmp")
+		files, err := os.ReadDir("/tmp")
 		if err != nil {
 			responder.SendError(w, http.StatusBadRequest, "failed to clear tmp: "+err.Error())
 			return
