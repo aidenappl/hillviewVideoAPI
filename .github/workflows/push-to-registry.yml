@@ -29,3 +29,12 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.REGISTRY_URL }}/${{ secrets.IMAGE_NAME }}:latest
+
+      - name: Deploy to Lattice
+        run: |
+          echo "Triggering Lattice deployment..."
+          curl -sf -X POST "${{ secrets.LATTICE_DEPLOY_URL }}?container=${{ secrets.IMAGE_NAME }}" \
+            --max-time 30 \
+            -o /dev/null -w "HTTP %{http_code}"
+          echo ""
+          echo "Container redeployed successfully!"
