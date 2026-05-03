@@ -34,6 +34,7 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 		"playlists.banner_image",
 		"playlists.route",
 		"playlists.inserted_at",
+		"playlists.updated_at",
 	).
 		From("playlists").
 		OrderBy("playlists.id " + *req.Sort).
@@ -58,6 +59,7 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 			&playlist.BannerImage,
 			&playlist.Route,
 			&playlist.InsertedAt,
+			&playlist.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning playlist: %s", err)
@@ -94,6 +96,7 @@ func GetPlaylist(db db.Queryable, req GetPlaylistRequest) (*structs.Playlist, er
 		"playlists.banner_image",
 		"playlists.route",
 		"playlists.inserted_at",
+		"playlists.updated_at",
 	).
 		From("playlists")
 
@@ -129,6 +132,7 @@ func GetPlaylist(db db.Queryable, req GetPlaylistRequest) (*structs.Playlist, er
 		&playlist.BannerImage,
 		&playlist.Route,
 		&playlist.InsertedAt,
+		&playlist.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error scanning playlist: %s", err)

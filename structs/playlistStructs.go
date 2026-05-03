@@ -7,5 +7,6 @@ type Playlist struct {
 	BannerImage string   `json:"banner_image"`
 	Route       string   `json:"route"`
 	InsertedAt  string   `json:"inserted_at"`
+	UpdatedAt   string   `json:"updated_at"`
 	Videos      []*Video `json:"videos"`
 }

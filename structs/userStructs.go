@@ -10,6 +10,7 @@ type User struct {
 	ProfileImageURL          string                        `json:"profile_image_url"`
 	Authentication           GeneralNST                    `json:"authentication"`
 	InsertedAt               time.Time                     `json:"inserted_at"`
+	UpdatedAt                time.Time                     `json:"updated_at"`
 	LastActive               *time.Time                    `json:"last_active"`
 	AuthenticationStrategies *UserAuthenticationStrategies `json:"strategies,omitempty"`
 }
