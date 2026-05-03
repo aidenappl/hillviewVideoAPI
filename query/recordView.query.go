@@ -8,7 +8,8 @@ import (
 )
 
 type RecordViewRequest struct {
-	ID int `json:"id"`
+	ID        int
+	IPAddress *string
 }
 
 func RecordView(db db.Queryable, req RecordViewRequest) error {
@@ -17,10 +18,17 @@ func RecordView(db db.Queryable, req RecordViewRequest) error {
 		return fmt.Errorf("id is required")
 	}
 
-	// insert new view
+	cols := []string{"video_id"}
+	vals := []interface{}{req.ID}
+
+	if req.IPAddress != nil {
+		cols = append(cols, "ip_address")
+		vals = append(vals, req.IPAddress)
+	}
+
 	query, args, err := sq.Insert("video_views").
-		Columns("video_id").
-		Values(req.ID).
+		Columns(cols...).
+		Values(vals...).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("error building query: %v", err)

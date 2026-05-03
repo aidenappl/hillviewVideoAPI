@@ -1,8 +1,10 @@
 package routers
 
 import (
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/hillview.tv/videoAPI/db"
@@ -47,9 +49,13 @@ func HandleRecordView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// update video
+	// extract IP address
+	ip := extractIP(r)
+
+	// record view
 	err = query.RecordView(db.DB, query.RecordViewRequest{
-		ID: video.ID,
+		ID:        video.ID,
+		IPAddress: &ip,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -57,4 +63,15 @@ func HandleRecordView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func extractIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		return strings.TrimSpace(strings.SplitN(xff, ",", 2)[0])
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }

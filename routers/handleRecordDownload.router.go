@@ -47,9 +47,13 @@ func HandleRecordDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// update video
+	// extract IP address
+	ip := extractIP(r)
+
+	// record download
 	err = query.RecordDownload(db.DB, query.RecordDownloadRequest{
-		ID: video.ID,
+		ID:        video.ID,
+		IPAddress: &ip,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
