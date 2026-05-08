@@ -126,15 +126,8 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 func MuxHeaderMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, "+
-			"Content-Type, "+
-			"Accept-Encoding, "+
-			"Connection, "+
-			"Content-Length")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Content-Type", "application/json")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Add("Server", "Go")
 		next.ServeHTTP(w, r)
 	})
@@ -182,12 +175,11 @@ func TokenHandlers(next http.Handler) http.Handler {
 
 func AccessTokenMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// get token from header
+		// get token from header or cookie
 		rawToken := r.Header.Get("Authorization")
 		if rawToken == "" {
-			uploadRaw := r.Header.Get("Cookies")
-			if uploadRaw != "" {
-				rawToken = uploadRaw
+			if cookie, err := r.Cookie("hv_access"); err == nil && cookie.Value != "" {
+				rawToken = "Bearer " + cookie.Value
 			}
 		}
 		splitToken := strings.Split(rawToken, "Bearer ")

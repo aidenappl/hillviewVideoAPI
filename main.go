@@ -117,7 +117,7 @@ func main() {
 
 	create := r.PathPrefix("/create").Subrouter()
 
-	create.HandleFunc("/video", routers.HandleVideoCreate).Methods(http.MethodPost)
+	create.Handle("/video", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleVideoCreate))).Methods(http.MethodPost)
 
 	// V2.1 Endpoints
 	r.HandleFunc("/recordView/{query}", routers.HandleRecordView).Methods(http.MethodPost)
