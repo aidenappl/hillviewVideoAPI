@@ -14,6 +14,7 @@ type Video struct {
 	URL            string      `json:"url"`
 	DownloadURL    *string     `json:"download_url"`
 	AllowDownloads bool        `json:"allow_downloads"`
+	Duration       *int        `json:"duration,omitempty"`
 	Views          int         `json:"views"`
 	Status         *GeneralNSN `json:"status"`
 	InsertedAt     string      `json:"inserted_at"`
@@ -29,6 +30,7 @@ type NulledVideo struct {
 	URL            *string           `json:"url"`
 	DownloadURL    *string           `json:"download_url"`
 	AllowDownloads *bool             `json:"allow_downloads"`
+	Duration       *int              `json:"duration,omitempty"`
 	Views          *int              `json:"views"`
 	Status         *GeneralNSNNulled `json:"status"`
 	InsertedAt     *string           `json:"inserted_at"`

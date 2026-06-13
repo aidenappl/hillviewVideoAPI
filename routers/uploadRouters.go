@@ -50,6 +50,7 @@ type VideoUploadResponse struct {
 	URL       string `json:"url"`
 	Thumbnail string `json:"thumbnail"`
 	S3Url     string `json:"s3_url"`
+	Duration  int    `json:"duration"`
 }
 
 type CloudflareResponse struct {
@@ -212,6 +213,9 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		URL:       body.Result.Playback.Hls,
 		Thumbnail: body.Result.Thumbnail,
 		S3Url:     "https://content.hillview.tv/videos/uploads/" + generated,
+		// Cloudflare reports duration once processing completes; may be 0 here
+		// for a just-copied video. The backfill tool reconciles older/zero rows.
+		Duration: body.Result.Duration,
 	})
 }
 

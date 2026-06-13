@@ -30,6 +30,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		"videos.url",
 		"videos.download_url",
 		"videos.allow_downloads",
+		"videos.duration",
 		"videos.inserted_at",
 
 		"video_statuses.id",
@@ -77,6 +78,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		&video.URL,
 		&video.DownloadURL,
 		&video.AllowDownloads,
+		&video.Duration,
 		&video.InsertedAt,
 
 		&status.ID,
@@ -151,6 +153,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 		"videos.url",
 		"videos.download_url",
 		"videos.allow_downloads",
+		"videos.duration",
 		"videos.inserted_at",
 
 		"video_statuses.id",
@@ -216,6 +219,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 			&video.URL,
 			&video.DownloadURL,
 			&video.AllowDownloads,
+			&video.Duration,
 			&video.InsertedAt,
 
 			&status.ID,
@@ -251,6 +255,7 @@ type CreateVideoRequest struct {
 	Description *string `json:"description"`
 	Thumbnail   *string `json:"thumbnail"`
 	URL         *string `json:"url"`
+	Duration    *int    `json:"duration"`
 }
 
 func CreateVideo(db db.Queryable, req CreateVideoRequest) (*structs.Video, error) {
@@ -261,12 +266,14 @@ func CreateVideo(db db.Queryable, req CreateVideoRequest) (*structs.Video, error
 			"description",
 			"thumbnail",
 			"url",
+			"duration",
 		).
 		Values(
 			req.Title,
 			req.Description,
 			req.Thumbnail,
 			req.URL,
+			req.Duration,
 		).
 		ToSql()
 

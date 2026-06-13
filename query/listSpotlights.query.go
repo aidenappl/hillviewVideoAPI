@@ -39,6 +39,7 @@ func ListSpotlights(db db.Queryable, req ListSpotlightsRequest) ([]*structs.Spot
 		"videos.url",
 		"videos.download_url",
 		"videos.allow_downloads",
+		"videos.duration",
 		"videos.inserted_at",
 		`(
 			SELECT COUNT(video_views.id) FROM video_views WHERE video_views.video_id = videos.id
@@ -90,6 +91,7 @@ func ListSpotlights(db db.Queryable, req ListSpotlightsRequest) ([]*structs.Spot
 			&v.URL,
 			&v.DownloadURL,
 			&v.AllowDownloads,
+			&v.Duration,
 			&v.InsertedAt,
 			&v.Views,
 
@@ -110,6 +112,7 @@ func ListSpotlights(db db.Queryable, req ListSpotlightsRequest) ([]*structs.Spot
 				URL:            *v.URL,
 				DownloadURL:    v.DownloadURL,
 				AllowDownloads: *v.AllowDownloads,
+				Duration:       v.Duration,
 				InsertedAt:     *v.InsertedAt,
 				Status: &structs.GeneralNSN{
 					ID:        *v.Status.ID,
