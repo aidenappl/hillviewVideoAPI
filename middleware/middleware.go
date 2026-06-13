@@ -241,6 +241,18 @@ func AccessTokenMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		if user == nil {
+			log.Println("no user found with id from token")
+			responder.SendError(w, http.StatusUnauthorized, "Invalid token: no user found")
+			return
+		}
+
+		if user.Authentication.ID != 3 { // Admin privileges required
+			log.Println("user does not have admin privileges")
+			responder.SendError(w, http.StatusUnauthorized, "Invalid token: user does not have sufficient privileges")
+			return
+		}
+
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, UserModelCtxKey, user)
 		ctx = context.WithValue(ctx, JWTClaimsCtxKey, claims)
