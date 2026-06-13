@@ -30,6 +30,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		"videos.url",
 		"videos.download_url",
 		"videos.allow_downloads",
+		"videos.show_captions",
 		"videos.duration",
 		"videos.inserted_at",
 
@@ -42,10 +43,10 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		) as views`,
 
 		`(
-			SELECT plain_text FROM video_captions
+			SELECT vtt FROM video_captions
 			WHERE video_captions.video_id = videos.id AND video_captions.language = 'en' AND video_captions.status = 'ready'
 			LIMIT 1
-		) as transcript`,
+		) as captions_vtt`,
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
@@ -88,6 +89,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		&video.URL,
 		&video.DownloadURL,
 		&video.AllowDownloads,
+		&video.ShowCaptions,
 		&video.Duration,
 		&video.InsertedAt,
 
@@ -96,10 +98,15 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		&status.ShortName,
 
 		&video.Views,
-		&video.Transcript,
+		&video.CaptionsVTT,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan row: %w", err)
+	}
+
+	// Withhold the transcript from public responses when captions are disabled.
+	if !video.ShowCaptions {
+		video.CaptionsVTT = nil
 	}
 
 	if strings.Contains(video.URL, "cloudflare") {

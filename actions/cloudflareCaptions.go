@@ -1,10 +1,12 @@
 package actions
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -114,6 +116,55 @@ func FetchVTT(uid, lang string) (string, error) {
 		return "", fmt.Errorf("fetch vtt status %d: %s", status, strings.TrimSpace(string(body)))
 	}
 	return string(body), nil
+}
+
+// PutCaptions uploads a (corrected) WebVTT file for a video+language. This marks
+// the caption as human-edited on Cloudflare (generated=false).
+func PutCaptions(uid, lang, vtt string) error {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, err := mw.CreateFormFile("file", lang+".vtt")
+	if err != nil {
+		return err
+	}
+	if _, err := fw.Write([]byte(vtt)); err != nil {
+		return err
+	}
+	mw.Close()
+
+	url := fmt.Sprintf("%s/%s/stream/%s/captions/%s", cfBase, env.CloudflareUID, uid, lang)
+	req, err := http.NewRequest(http.MethodPut, url, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+env.CloudflareToken)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("put captions status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+// DeleteCaptions removes a video's caption for a language. A 404 is treated as
+// success (nothing to delete).
+func DeleteCaptions(uid, lang string) error {
+	url := fmt.Sprintf("%s/%s/stream/%s/captions/%s", cfBase, env.CloudflareUID, uid, lang)
+	status, body, err := cfDo(http.MethodDelete, url)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusOK || status == http.StatusNoContent || status == http.StatusNotFound {
+		return nil
+	}
+	return fmt.Errorf("delete captions status %d: %s", status, strings.TrimSpace(string(body)))
 }
 
 // VTTToPlainText strips WebVTT structure (header, cue numbers, timestamps) down

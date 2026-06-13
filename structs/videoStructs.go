@@ -14,8 +14,9 @@ type Video struct {
 	URL            string      `json:"url"`
 	DownloadURL    *string     `json:"download_url"`
 	AllowDownloads bool        `json:"allow_downloads"`
+	ShowCaptions   bool        `json:"show_captions"`
 	Duration       *int        `json:"duration,omitempty"`
-	Transcript     *string     `json:"transcript,omitempty"`
+	CaptionsVTT    *string     `json:"captions_vtt,omitempty"`
 	Views          int         `json:"views"`
 	Status         *GeneralNSN `json:"status"`
 	InsertedAt     string      `json:"inserted_at"`

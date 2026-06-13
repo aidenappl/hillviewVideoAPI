@@ -119,6 +119,12 @@ func main() {
 
 	create.Handle("/video", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleVideoCreate))).Methods(http.MethodPost)
 
+	// Caption admin (edit / regenerate) — keyed by video uuid
+	captions := r.PathPrefix("/captions").Subrouter()
+	captions.Handle("/{uuid}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleGetCaption))).Methods(http.MethodGet)
+	captions.Handle("/{uuid}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandlePutCaption))).Methods(http.MethodPut)
+	captions.Handle("/{uuid}/regenerate", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleRegenerateCaption))).Methods(http.MethodPost)
+
 	// V2.1 Endpoints
 	r.HandleFunc("/recordView/{query}", routers.HandleRecordView).Methods(http.MethodPost)
 	r.HandleFunc("/recordDownload/{query}", routers.HandleRecordDownload).Methods(http.MethodPost)
