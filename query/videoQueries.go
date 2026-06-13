@@ -40,6 +40,12 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		`(
 			SELECT COUNT(video_views.id) FROM video_views WHERE video_views.video_id = videos.id
 		) as views`,
+
+		`(
+			SELECT plain_text FROM video_captions
+			WHERE video_captions.video_id = videos.id AND video_captions.language = 'en' AND video_captions.status = 'ready'
+			LIMIT 1
+		) as transcript`,
 	).
 		From("videos").
 		LeftJoin("video_statuses ON videos.status = video_statuses.id").
@@ -90,6 +96,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		&status.ShortName,
 
 		&video.Views,
+		&video.Transcript,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan row: %w", err)

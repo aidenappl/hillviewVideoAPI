@@ -136,6 +136,9 @@ func main() {
 	// Reconcile video durations with Cloudflare (fills new/edited/processing videos)
 	go background.StartVideoDurationSync(ctx)
 
+	// Generate + capture AI captions/transcripts from Cloudflare
+	go background.StartVideoCaptionSync(ctx)
+
 	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Cookies", "Accept", "Cookie", "X-CSRF-Token", "Tus-Resumable", "Upload-Length", "Upload-Metadata"})
 	originsOk := handlers.AllowedOrigins([]string{"https://team.hillview.tv", "https://hillview.tv", "https://live.hillview.tv", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002"})
 	allowCredentials := handlers.AllowCredentials()
