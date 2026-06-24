@@ -76,17 +76,21 @@ func HandlePutCaption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := actions.PutCaptions(uid, captionLanguage, *body.VTT); err != nil {
+	// Cloudflare requires sequential cue identifiers — enforce on every PUT,
+	// regardless of which client/path produced the VTT.
+	vtt := actions.NumberVTTCues(*body.VTT)
+
+	if err := actions.PutCaptions(uid, captionLanguage, vtt); err != nil {
 		responder.SendError(w, http.StatusBadGateway, "failed to upload caption to Cloudflare", err)
 		return
 	}
 
-	plain := actions.VTTToPlainText(*body.VTT)
-	if err := query.UpsertCaption(db.DB, id, captionLanguage, "ready", body.VTT, &plain); err != nil {
+	plain := actions.VTTToPlainText(vtt)
+	if err := query.UpsertCaption(db.DB, id, captionLanguage, "ready", &vtt, &plain); err != nil {
 		responder.SendError(w, http.StatusInternalServerError, "failed to save caption", err)
 		return
 	}
-	responder.New(w, query.Caption{Language: captionLanguage, Status: "ready", VTT: body.VTT})
+	responder.New(w, query.Caption{Language: captionLanguage, Status: "ready", VTT: &vtt})
 }
 
 // HandleRegenerateCaption discards the current caption and re-runs Cloudflare's
