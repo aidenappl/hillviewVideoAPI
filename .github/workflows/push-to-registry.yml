@@ -64,7 +64,10 @@ jobs:
 
       # Layers that already reached the registry are skipped on a retry
       # ("Layer already exists"), so a retry only re-sends what was lost.
+      # shell: bash (not the implicit `bash -e`) so pipefail is on and a failed
+      # `docker push` is not masked by `tee`'s exit status.
       - name: Push image
+        shell: bash
         env:
           TAGS: ${{ secrets.REGISTRY_URL }}/${{ secrets.IMAGE_NAME }}:latest
         run: |
