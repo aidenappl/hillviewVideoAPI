@@ -15,26 +15,120 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Network retries: registry.appleby.cloud and Lattice sit on-prem behind
+      # Cloudflare on one WAN, and ~5% of requests time out or 522. Every call
+      # to them below makes 5 attempts (5s, 10s, 20s, 40s apart) and fails at
+      # once on an auth/4xx answer.
+      #
+      # Shell login, not docker/login-action (which has no retry). Writes the
+      # same ~/.docker/config.json that buildx and `docker push` read.
       - name: Log in to Appleby Cloud Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.REGISTRY_URL }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+        env:
+          REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" \
+                -u "$REGISTRY_USERNAME" --password-stdin > login.log 2>&1; then
+              cat login.log
+              exit 0
+            fi
+            cat login.log
+            if grep -qiE 'unauthorized|incorrect username|denied|forbidden' login.log; then
+              echo "::error title=Registry login refused::credentials rejected - not retrying"
+              exit 1
+            fi
+            if [ "$attempt" -lt 5 ]; then
+              delay=$((5 * 2 ** (attempt - 1)))
+              echo "::warning title=Registry login retry::attempt $attempt/5 failed; retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          echo "::error title=Registry unreachable::docker login failed after 5 attempts"
+          exit 1
 
-      - name: Build and push image
+      # Build only (load into the runner's daemon); the push is its own step
+      # so a network blip retries the push, not the whole build.
+      # provenance: false - the docker exporter cannot carry attestations,
+      # so the pushed tag is a plain single-platform manifest.
+      - name: Build image
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/amd64
-          push: true
+          push: false
+          load: true
+          provenance: false
           tags: ${{ secrets.REGISTRY_URL }}/${{ secrets.IMAGE_NAME }}:latest
 
+      # Layers that already reached the registry are skipped on a retry
+      # ("Layer already exists"), so a retry only re-sends what was lost.
+      - name: Push image
+        env:
+          TAGS: ${{ secrets.REGISTRY_URL }}/${{ secrets.IMAGE_NAME }}:latest
+        run: |
+          for tag in $TAGS; do
+            for attempt in 1 2 3 4 5; do
+              if docker push "$tag" 2>&1 | tee push.log; then
+                continue 2
+              fi
+              if grep -qiE 'unauthorized|denied|forbidden|name unknown|manifest invalid' push.log; then
+                echo "::error title=Registry refused the push::$tag - not retrying"
+                exit 1
+              fi
+              if [ "$attempt" -lt 5 ]; then
+                delay=$((5 * 2 ** (attempt - 1)))
+                echo "::warning title=Registry push retry::$tag attempt $attempt/5 failed; retrying in ${delay}s"
+                sleep "$delay"
+              fi
+            done
+            echo "::error title=Registry unreachable::push of $tag failed after 5 attempts"
+            exit 1
+          done
+
       - name: Deploy to Lattice
+        env:
+          DEPLOY_URL: ${{ secrets.LATTICE_DEPLOY_URL }}
+          CONTAINER: ${{ secrets.IMAGE_NAME }}
+          SHA: ${{ github.sha }}
         run: |
           echo "Triggering Lattice deployment..."
-          curl -sf -X POST "${{ secrets.LATTICE_DEPLOY_URL }}?container=${{ secrets.IMAGE_NAME }}&commit=${{ github.sha }}" \
-            --max-time 30 \
-            -o /dev/null -w "HTTP %{http_code}"
-          echo ""
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error title=No deploy credential::LATTICE_DEPLOY_URL is not set."
+            exit 1
+          fi
+          # Retried: curl failure (timeout, reset, DNS -> HTTP 000) and
+          # 408/429/502/503/504/520-524. Any other non-2xx (400 "worker is not
+          # connected", 401/403/404, 500) fails at once. A 524 can mean Lattice
+          # got the request but answered slowly, so a retry may redeploy the
+          # same commit twice - harmless (same image, same container).
+          for attempt in 1 2 3 4 5; do
+            rm -f response.json
+            HTTP=$(curl -sS -X POST "$DEPLOY_URL?container=$CONTAINER&commit=$SHA" \
+              --max-time 30 -o response.json -w '%{http_code}') && RC=0 || RC=$?
+            if [ "$RC" -eq 0 ] && [ "$HTTP" -ge 200 ] && [ "$HTTP" -lt 300 ]; then
+              echo "HTTP $HTTP"
+              break
+            fi
+            case "$RC:$HTTP" in
+              0:408|0:429|0:502|0:503|0:504|0:52[0-4]) RETRY=1; WHY="HTTP $HTTP" ;;
+              0:*) RETRY=0; WHY="HTTP $HTTP" ;;
+              *) RETRY=1; WHY="curl exit $RC" ;;
+            esac
+            if [ "$RETRY" -eq 0 ]; then
+              # Lattice's reason (e.g. 400 "worker is not connected") is in the body.
+              cat response.json 2>/dev/null || true; echo
+              echo "::error title=Lattice refused the redeploy::$WHY"
+              exit 1
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              [ -s response.json ] && { head -c 2000 response.json; echo; }
+              echo "::error title=Lattice unreachable::$WHY after 5 attempts"
+              exit 1
+            fi
+            delay=$((5 * 2 ** (attempt - 1)))
+            echo "::warning title=Lattice redeploy retry::attempt $attempt/5 failed ($WHY); retrying in ${delay}s"
+            sleep "$delay"
+          done
           echo "Container redeployed successfully!"
