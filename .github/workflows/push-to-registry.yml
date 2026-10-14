@@ -6,14 +6,21 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lattice-worker]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # The host's shared BuildKit, not docker/setup-buildx-action: that races
+      # with other runners on the shared Docker daemon. Its local layer cache
+      # persists between builds, so there is no gha cache (it fails through a
+      # remote builder anyway).
+      - name: Use lattice-builder
+        run: |
+          docker buildx inspect lattice-builder >/dev/null 2>&1 \
+            || docker buildx create --name lattice-builder --driver remote tcp://127.0.0.1:1234
+          docker buildx inspect lattice-builder
 
       # Network retries: registry.appleby.cloud and Lattice sit on-prem behind
       # Cloudflare on one WAN, and ~5% of requests time out or 522. Every call
@@ -55,6 +62,7 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v5
         with:
+          builder: lattice-builder
           context: .
           platforms: linux/amd64
           push: false
