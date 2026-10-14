@@ -12,7 +12,7 @@ WORKDIR /app
 # -s removes Go's symbol table so you can't list functions.
 # Neither of these affect how the program runs, just how it can be debugged.
 # More info: https://stackoverflow.com/a/22276273
-RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o bin/compiled-binary *.go
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o bin/compiled-binary *.go
 
 # Make sure to always use the same version of linux for building AND running!
 FROM alpine
