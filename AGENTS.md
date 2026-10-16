@@ -105,6 +105,7 @@ Event catalogue:
 | `healthcheck.ping.failed / healthcheck.ping.rejected` | warn | the healthchecks.io heartbeat could not be delivered |
 | `duration_sync.{query,scan,update}.failed` | error | duration reconcile could not read or write the DB |
 | `duration_sync.cloudflare.failed` | warn | Cloudflare lookup for one video failed (`video_id`) |
+| `duration_sync.cloudflare.missing` | warn | Cloudflare Stream has no such video (404) — once per video per process; the video is skipped until restart so dead rows can't starve new uploads (`video_id`, `cloudflare_uid`) |
 | `caption_sync.query.failed` | error | `stage` = trigger or collect |
 | `caption_sync.{insert,save}.failed` | error | caption row could not be written (`video_id`) |
 | `caption_sync.{generate,status,fetch_vtt}.failed` | warn | a Cloudflare caption call failed (`video_id`); retried next tick |

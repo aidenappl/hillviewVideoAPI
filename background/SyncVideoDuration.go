@@ -2,7 +2,10 @@ package background
 
 import (
 	"context"
+	"errors"
 	"log"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/hillview.tv/videoAPI/actions"
@@ -44,11 +47,33 @@ func StartVideoDurationSync(ctx context.Context) {
 	}
 }
 
+// missingOnCloudflare holds videos Cloudflare answered 404 for. They are
+// left out of later passes — otherwise the same dead rows fill every batch of
+// maxPerRun and newly uploaded videos behind them never get a duration — and
+// reported once per process instead of on every tick. A restart retries them.
+var (
+	missingMu           sync.Mutex
+	missingOnCloudflare = map[int]bool{}
+)
+
 func reconcileVideoDurations() {
-	rows, err := db.DB.Query(
-		"SELECT id, url FROM videos WHERE (duration IS NULL OR duration = 0) AND url LIKE '%cloudflare%' LIMIT ?",
-		maxPerRun,
-	)
+	missingMu.Lock()
+	skip := make([]any, 0, len(missingOnCloudflare))
+	for id := range missingOnCloudflare {
+		skip = append(skip, id)
+	}
+	missingMu.Unlock()
+
+	q := "SELECT id, url FROM videos WHERE (duration IS NULL OR duration = 0) AND url LIKE '%cloudflare%'"
+	args := []any{}
+	if len(skip) > 0 {
+		q += " AND id NOT IN (?" + strings.Repeat(",?", len(skip)-1) + ")"
+		args = append(args, skip...)
+	}
+	q += " ORDER BY id DESC LIMIT ?"
+	args = append(args, maxPerRun)
+
+	rows, err := db.DB.Query(q, args...)
 	if err != nil {
 		log.Printf("duration sync: query failed: %v", err)
 		telemetry.Error(context.Background(), "duration_sync.query.failed", err, nil)
@@ -86,6 +111,14 @@ func reconcileVideoDurations() {
 		}
 
 		duration, err := actions.GetCloudflareDuration(t.uid)
+		if errors.Is(err, actions.ErrStreamNotFound) {
+			missingMu.Lock()
+			missingOnCloudflare[t.id] = true
+			missingMu.Unlock()
+			log.Printf("duration sync: video %d not found on Cloudflare Stream; skipping until restart", t.id)
+			telemetry.Warn(context.Background(), "duration_sync.cloudflare.missing", err, map[string]any{"video_id": t.id, "cloudflare_uid": t.uid})
+			continue
+		}
 		if err != nil {
 			log.Printf("duration sync: video %d cloudflare error: %v", t.id, err)
 			telemetry.Warn(context.Background(), "duration_sync.cloudflare.failed", err, map[string]any{"video_id": t.id})
