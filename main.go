@@ -6,8 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -16,6 +19,7 @@ import (
 	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
 	"github.com/hillview.tv/videoAPI/routers"
+	"github.com/hillview.tv/videoAPI/telemetry"
 )
 
 func FilterDir(dir string) (*[]string, error) {
@@ -38,6 +42,15 @@ func FilterDir(dir string) (*[]string, error) {
 }
 
 func main() {
+	telemetry.Init(telemetry.Config{
+		Service:   "hillview-video-api",
+		IngestURL: env.MonitorIngestURL,
+		APIKey:    env.MonitorAPIKey,
+		Env:       env.MonitorEnv,
+		SpoolDir:  env.MonitorSpoolDir,
+		Stdout:    env.MonitorStdout,
+	})
+
 	primary := mux.NewRouter()
 
 	// Healthcheck Endpoint
@@ -47,6 +60,7 @@ func main() {
 
 	// Ping DB
 	if err := db.PingDB(); err != nil {
+		telemetry.Fatal("service.startup.db_unreachable", err, nil)
 		log.Fatalf("❌ Failed to connect to the database: %v", err)
 	} else {
 		log.Println("✅ Connected to the database successfully")
@@ -57,6 +71,9 @@ func main() {
 
 	// Request ID Middleware
 	r.Use(middleware.RequestIDMiddleware)
+
+	// Monitor: one http.request.end event per request, panics recovered
+	r.Use(telemetry.Middleware)
 
 	// Logging of requests
 	r.Use(middleware.LoggingMiddleware)
@@ -137,17 +154,32 @@ func main() {
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)
 
 	// Add the health check polling
-	go background.StartHealthCheckPolling(ctx)
+	telemetry.Go(ctx, "background.healthcheck", background.StartHealthCheckPolling)
 
 	// Reconcile video durations with Cloudflare (fills new/edited/processing videos)
-	go background.StartVideoDurationSync(ctx)
+	telemetry.Go(ctx, "background.duration_sync", background.StartVideoDurationSync)
 
 	// Generate + capture AI captions/transcripts from Cloudflare
-	go background.StartVideoCaptionSync(ctx)
+	telemetry.Go(ctx, "background.caption_sync", background.StartVideoCaptionSync)
 
 	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Cookies", "Accept", "Cookie", "X-CSRF-Token", "Tus-Resumable", "Upload-Length", "Upload-Metadata"})
 	originsOk := handlers.AllowedOrigins([]string{"https://team.hillview.tv", "https://hillview.tv", "https://live.hillview.tv", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002"})
+	exposedOk := handlers.ExposedHeaders([]string{"X-Request-ID"})
 	allowCredentials := handlers.AllowCredentials()
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
-	log.Fatal(http.ListenAndServe(":"+env.Port, handlers.CORS(originsOk, headersOk, methodsOk, allowCredentials)(primary)))
+
+	// No Read/WriteTimeout: /upload takes whole video files, and the old
+	// ListenAndServe had no limit at all. Only the header read is bounded.
+	server := &http.Server{
+		Addr:              ":" + env.Port,
+		Handler:           handlers.CORS(originsOk, headersOk, exposedOk, methodsOk, allowCredentials)(primary),
+		ReadHeaderTimeout: 15 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	if err := telemetry.ServeWithGracefulShutdown(server, stop); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
 }

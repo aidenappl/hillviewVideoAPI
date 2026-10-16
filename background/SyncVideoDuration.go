@@ -7,6 +7,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/telemetry"
 )
 
 const (
@@ -50,6 +51,7 @@ func reconcileVideoDurations() {
 	)
 	if err != nil {
 		log.Printf("duration sync: query failed: %v", err)
+		telemetry.Error(context.Background(), "duration_sync.query.failed", err, nil)
 		return
 	}
 
@@ -63,6 +65,7 @@ func reconcileVideoDurations() {
 		var url string
 		if err := rows.Scan(&id, &url); err != nil {
 			log.Printf("duration sync: scan failed: %v", err)
+			telemetry.Error(context.Background(), "duration_sync.scan.failed", err, nil)
 			continue
 		}
 		if uid := actions.CloudflareID(url); uid != "" {
@@ -85,6 +88,7 @@ func reconcileVideoDurations() {
 		duration, err := actions.GetCloudflareDuration(t.uid)
 		if err != nil {
 			log.Printf("duration sync: video %d cloudflare error: %v", t.id, err)
+			telemetry.Warn(context.Background(), "duration_sync.cloudflare.failed", err, map[string]any{"video_id": t.id})
 			continue
 		}
 		if duration == nil {
@@ -93,6 +97,7 @@ func reconcileVideoDurations() {
 		}
 		if _, err := db.DB.Exec("UPDATE videos SET duration = ? WHERE id = ?", *duration, t.id); err != nil {
 			log.Printf("duration sync: video %d update failed: %v", t.id, err)
+			telemetry.Error(context.Background(), "duration_sync.update.failed", err, map[string]any{"video_id": t.id})
 			continue
 		}
 		updated++

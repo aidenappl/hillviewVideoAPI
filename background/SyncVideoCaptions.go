@@ -8,6 +8,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/telemetry"
 )
 
 const (
@@ -70,6 +71,7 @@ func triggerCaptionGeneration() {
 	)
 	if err != nil {
 		log.Printf("caption sync: trigger query failed: %v", err)
+		telemetry.Error(context.Background(), "caption_sync.query.failed", err, map[string]any{"stage": "trigger"})
 		return
 	}
 
@@ -102,6 +104,7 @@ func triggerCaptionGeneration() {
 		status := "inprogress"
 		if err != nil {
 			log.Printf("caption sync: generate failed for video %d: %v", t.id, err)
+			telemetry.Warn(context.Background(), "caption_sync.generate.failed", err, map[string]any{"video_id": t.id})
 			status = "error"
 		}
 		if _, err := db.DB.Exec(
@@ -111,6 +114,7 @@ func triggerCaptionGeneration() {
 			t.id, captionLanguage, status,
 		); err != nil {
 			log.Printf("caption sync: insert row failed for video %d: %v", t.id, err)
+			telemetry.Error(context.Background(), "caption_sync.insert.failed", err, map[string]any{"video_id": t.id})
 		}
 	}
 	if len(targets) > 0 {
@@ -130,6 +134,7 @@ func collectReadyCaptions() {
 	)
 	if err != nil {
 		log.Printf("caption sync: collect query failed: %v", err)
+		telemetry.Error(context.Background(), "caption_sync.query.failed", err, map[string]any{"stage": "collect"})
 		return
 	}
 
@@ -158,6 +163,7 @@ func collectReadyCaptions() {
 		status, err := actions.CaptionStatus(t.uid, captionLanguage)
 		if err != nil {
 			log.Printf("caption sync: status check failed for video %d: %v", t.id, err)
+			telemetry.Warn(context.Background(), "caption_sync.status.failed", err, map[string]any{"video_id": t.id})
 			continue
 		}
 		switch status {
@@ -165,6 +171,7 @@ func collectReadyCaptions() {
 			vtt, err := actions.FetchVTT(t.uid, captionLanguage)
 			if err != nil {
 				log.Printf("caption sync: fetch vtt failed for video %d: %v", t.id, err)
+				telemetry.Warn(context.Background(), "caption_sync.fetch_vtt.failed", err, map[string]any{"video_id": t.id})
 				continue
 			}
 			plain := actions.VTTToPlainText(vtt)
@@ -174,6 +181,7 @@ func collectReadyCaptions() {
 				vtt, plain, t.id, captionLanguage,
 			); err != nil {
 				log.Printf("caption sync: save failed for video %d: %v", t.id, err)
+				telemetry.Error(context.Background(), "caption_sync.save.failed", err, map[string]any{"video_id": t.id})
 				continue
 			}
 			collected++

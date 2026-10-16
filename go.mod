@@ -3,6 +3,7 @@ module github.com/hillview.tv/videoAPI
 go 1.26.9
 
 require (
+	github.com/aidenappl/go-monitor v0.0.9
 	github.com/aws/aws-sdk-go v1.42.33
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/gorilla/handlers v1.5.1
