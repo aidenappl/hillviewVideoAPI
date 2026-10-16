@@ -32,7 +32,10 @@ func Target(raw string, title string, presign Presigner) (string, error) {
 
 	switch {
 	case u.Hostname() == CONTENT_HOST:
-		key := strings.TrimPrefix(u.Path, "/")
+		key, err := objectKey(u)
+		if err != nil {
+			return "", fmt.Errorf("download url %q: %w", raw, err)
+		}
 		if key == "" {
 			return "", fmt.Errorf("download url %q has no object key", raw)
 		}
@@ -46,6 +49,15 @@ func Target(raw string, title string, presign Presigner) (string, error) {
 	default:
 		return "", fmt.Errorf("download url host %q is not a known content host", u.Hostname())
 	}
+}
+
+// objectKey is the S3 key a content.hillview.tv URL names. The stored URLs
+// come from the S3 console, which writes a space as a literal "+" — and S3
+// reads a "+" in the path the same way — so "+" is a space here, while a
+// percent-encoded "%2B" stays a real plus.
+func objectKey(u *url.URL) (string, error) {
+	escaped := strings.ReplaceAll(strings.TrimPrefix(u.EscapedPath(), "/"), "+", "%20")
+	return url.PathUnescape(escaped)
 }
 
 // ContentDisposition is an attachment header per RFC 6266: an ASCII-only
