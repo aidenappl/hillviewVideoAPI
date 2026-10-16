@@ -2,6 +2,7 @@ package actions
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +38,10 @@ type cloudflareStreamResponse struct {
 // Stream API by its UID. Returns nil when Cloudflare has no duration yet (still
 // processing) so callers can leave the column NULL and let the sync job retry.
 // Retries on HTTP 429, honoring Retry-After.
+// ErrStreamNotFound means Cloudflare Stream has no video with this uid — it
+// was deleted there, or the stored url is wrong. Retrying will not help.
+var ErrStreamNotFound = errors.New("cloudflare stream video not found")
+
 func GetCloudflareDuration(uid string) (*int, error) {
 	endpoint := fmt.Sprintf(
 		"https://api.cloudflare.com/client/v4/accounts/%s/stream/%s",
@@ -73,6 +78,9 @@ func GetCloudflareDuration(uid string) (*int, error) {
 			continue
 		}
 
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, ErrStreamNotFound
+		}
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("cloudflare returned status %d: %s",
 				resp.StatusCode, strings.TrimSpace(string(payload)))
