@@ -69,6 +69,8 @@ func TestTarget(t *testing.T) {
 		wantErr bool
 	}{
 		{"s3 object is presigned", "https://content.hillview.tv/videos/a%20b.mp4", presign, "https://signed.example/videos/a b.mp4", false},
+		{"console plus is a space", "https://content.hillview.tv/videos/uploads/OK+Matilda+N3+S2.mp4", presign, "https://signed.example/videos/uploads/OK Matilda N3 S2.mp4", false},
+		{"encoded plus stays a plus", "https://content.hillview.tv/videos/C%2B%2B.mp4", presign, "https://signed.example/videos/C++.mp4", false},
 		{"cloudflare gets filename", "https://customer-abc.cloudflarestream.com/uid/downloads/default.mp4", presign, "https://customer-abc.cloudflarestream.com/uid/downloads/default.mp4?filename=My-Video", false},
 		{"unknown host refused", "https://evil.example.com/x.mp4", presign, "", true},
 		{"content without key refused", "https://content.hillview.tv/", presign, "", true},
@@ -85,7 +87,7 @@ func TestTarget(t *testing.T) {
 			}
 		})
 	}
-	if gotKey != "videos/a b.mp4" || !strings.Contains(gotDisp, `filename="My Video.mp4"`) {
+	if !strings.Contains(gotDisp, `filename="My Video.mp4"`) {
 		t.Errorf("presigner got key %q disposition %q", gotKey, gotDisp)
 	}
 	if _, err := url.Parse(gotKey); err != nil {
