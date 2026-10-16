@@ -24,6 +24,7 @@ hillviewVideoAPI/
   awsBridge/             # S3 helpers
   background/            # heartbeat, `StartVideoDurationSync`, `StartVideoCaptionSync`
   db/                    # connection + `PingDB`
+  downloads/             # download redirect targets: presigned S3 (content.hillview.tv) or Stream ?filename=. No env/DB deps; unit-tested
   jwt/                   # Hillview JWT
   mailer/                # SendGrid
   middleware/            # request id, logging, headers, auth
@@ -83,6 +84,8 @@ Local runs need a reachable MariaDB. Leave the `MONITOR_*` variables unset local
 
 **Middleware order** on the `/video/v1.1` subrouter: (request id, where present) → `telemetry.Middleware` → `LoggingMiddleware` → `MuxHeaderMiddleware` → `TokenHandlers` (where present) → route. `/healthcheck` is on the root router, outside all of it, and emits nothing.
 
+**Downloads:** `GET /video/v1.1/download/{uuid|id}` answers **302** to a link the browser saves as `<title>.mp4` — a 15-minute presigned S3 URL with `response-content-disposition` for `content.hillview.tv` objects (signed for `us-west-1`, path-style), or the Stream URL with `?filename=` for Cloudflare. 403 when `allow_downloads` is off. The bytes never cross the studio WAN; hillview.tv links here instead of proxying files itself. Counting stays on `POST /recordDownload/{uuid}`.
+
 **Auth:** Hillview JWTs minted by hillviewAuthAPI and signed with the shared `JWT_SIGNING_KEY`, read from `Authorization: Bearer` or the `hv_access` cookie. `AccessTokenMiddleware` calls `telemetry.SetUserID` once it resolves the user.
 
 ### Monitor telemetry
@@ -105,6 +108,7 @@ Event catalogue:
 | `caption_sync.query.failed` | error | `stage` = trigger or collect |
 | `caption_sync.{insert,save}.failed` | error | caption row could not be written (`video_id`) |
 | `caption_sync.{generate,status,fetch_vtt}.failed` | warn | a Cloudflare caption call failed (`video_id`); retried next tick |
+| `video.download.sign_failed` | error | `/download/{uuid}` could not build a named link (`video_id`); the user got the raw URL instead |
 
 `X-Request-ID` is set on every response under the prefix and exposed via CORS, so the web apps' Monitor events can be joined to this service's.
 
