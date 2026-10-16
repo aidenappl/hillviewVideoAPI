@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hillview.tv/videoAPI/env"
+	"github.com/hillview.tv/videoAPI/telemetry"
 )
 
 func StartHealthCheckPolling(ctx context.Context) {
@@ -25,6 +26,7 @@ func StartHealthCheckPolling(ctx context.Context) {
 			resp, err := client.Get(env.HealthCheckURL)
 			if err != nil {
 				log.Printf("❌ Health check failed: %v", err)
+				telemetry.Warn(ctx, "healthcheck.ping.failed", err, nil)
 				continue
 			}
 
@@ -34,6 +36,7 @@ func StartHealthCheckPolling(ctx context.Context) {
 				// Health check successful
 			} else {
 				log.Printf("⚠️ Health check returned status: %d", resp.StatusCode)
+				telemetry.Warn(ctx, "healthcheck.ping.rejected", nil, map[string]any{"status_code": resp.StatusCode})
 			}
 
 		case <-ctx.Done():

@@ -1,5 +1,7 @@
 github.com/Masterminds/squirrel v1.5.2 h1:UiOEi2ZX4RCSkpiNDQN5kro/XIBpSRk9iTqdIRPzUXE=
 github.com/Masterminds/squirrel v1.5.2/go.mod h1:NNaOrjSoIDfDA40n7sr2tPNZRfjzjA400rg+riTZj10=
+github.com/aidenappl/go-monitor v0.0.9 h1:G1ESuE+nZspo3apg3UztFE+/OFfPiGNXMFnWfpvYlBw=
+github.com/aidenappl/go-monitor v0.0.9/go.mod h1:LZaET0uz5/Z3b2e1BFb3kRYBa/EazDtN9MYXOtisHRI=
 github.com/aws/aws-sdk-go v1.42.33 h1:YlwikF3suaqs6XXwCQAnQ1xDXv0olmYRqD4W+lXcfF8=
 github.com/aws/aws-sdk-go v1.42.33/go.mod h1:OGr6lGMAKGlG9CVrYnWYDKIyb829c6EVBRjxqjmPepc=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
