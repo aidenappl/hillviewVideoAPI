@@ -64,7 +64,9 @@ func reconcileVideoDurations() {
 	}
 	missingMu.Unlock()
 
-	q := "SELECT id, url FROM videos WHERE (duration IS NULL OR duration = 0) AND url LIKE '%cloudflare%'"
+	// Archived videos (status 4) are never shown again, and most of them have
+	// had their Stream copy deleted: checking them only produces 404s.
+	q := "SELECT id, url, status FROM videos WHERE (duration IS NULL OR duration = 0) AND url LIKE '%cloudflare%' AND status <> 4"
 	args := []any{}
 	if len(skip) > 0 {
 		q += " AND id NOT IN (?" + strings.Repeat(",?", len(skip)-1) + ")"
@@ -81,20 +83,21 @@ func reconcileVideoDurations() {
 	}
 
 	type target struct {
-		id  int
-		uid string
+		id     int
+		uid    string
+		status int
 	}
 	var targets []target
 	for rows.Next() {
-		var id int
+		var id, status int
 		var url string
-		if err := rows.Scan(&id, &url); err != nil {
+		if err := rows.Scan(&id, &url, &status); err != nil {
 			log.Printf("duration sync: scan failed: %v", err)
 			telemetry.Error(context.Background(), "duration_sync.scan.failed", err, nil)
 			continue
 		}
 		if uid := actions.CloudflareID(url); uid != "" {
-			targets = append(targets, target{id: id, uid: uid})
+			targets = append(targets, target{id: id, uid: uid, status: status})
 		}
 	}
 	rows.Close()
@@ -116,7 +119,7 @@ func reconcileVideoDurations() {
 			missingOnCloudflare[t.id] = true
 			missingMu.Unlock()
 			log.Printf("duration sync: video %d not found on Cloudflare Stream; skipping until restart", t.id)
-			telemetry.Warn(context.Background(), "duration_sync.cloudflare.missing", err, map[string]any{"video_id": t.id, "cloudflare_uid": t.uid})
+			telemetry.Warn(context.Background(), "duration_sync.cloudflare.missing", err, map[string]any{"video_id": t.id, "cloudflare_uid": t.uid, "video_status": t.status})
 			continue
 		}
 		if err != nil {
