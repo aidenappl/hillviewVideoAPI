@@ -10,6 +10,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/streamurl"
 	"github.com/hillview.tv/videoAPI/telemetry"
 )
 
@@ -66,7 +67,7 @@ func reconcileVideoDurations() {
 
 	// Archived videos (status 4) are never shown again, and most of them have
 	// had their Stream copy deleted: checking them only produces 404s.
-	q := "SELECT id, url, status FROM videos WHERE (duration IS NULL OR duration = 0) AND url LIKE '%cloudflare%' AND status <> 4"
+	q := "SELECT id, url, status FROM videos WHERE (duration IS NULL OR duration = 0) AND " + streamurl.SQL + " AND status <> 4"
 	args := []any{}
 	if len(skip) > 0 {
 		q += " AND id NOT IN (?" + strings.Repeat(",?", len(skip)-1) + ")"

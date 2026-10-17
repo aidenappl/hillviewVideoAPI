@@ -232,7 +232,7 @@ func triggerPhase(database *sql.DB, dry bool) {
 	rows, err := database.Query(
 		`SELECT v.id, v.url FROM videos v
 		   LEFT JOIN video_captions vc ON vc.video_id = v.id AND vc.language = ?
-		  WHERE (vc.id IS NULL OR vc.status = 'error') AND v.url LIKE '%cloudflare%'
+		  WHERE (vc.id IS NULL OR vc.status = 'error') AND (v.url LIKE '%cloudflare%' OR v.url LIKE '%videodelivery.net%')
 		    AND v.duration IS NOT NULL AND v.duration > 0 AND v.duration <= ?`,
 		language, maxDurationSec,
 	)

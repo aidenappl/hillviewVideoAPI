@@ -24,6 +24,7 @@ hillviewVideoAPI/
   awsBridge/             # S3 helpers
   background/            # heartbeat, `StartVideoDurationSync`, `StartVideoCaptionSync`
   db/                    # connection + `PingDB`
+  streamurl/             # recognises both Stream url forms (customer-….cloudflarestream.com and 2022-era videodelivery.net) + uid + SQL filter; no env/DB deps. Use it, never a bare LIKE '%cloudflare%'
   downloads/             # download redirect targets: presigned S3 (content.hillview.tv) or Stream ?filename=. No env/DB deps; unit-tested
   jwt/                   # Hillview JWT
   mailer/                # SendGrid
