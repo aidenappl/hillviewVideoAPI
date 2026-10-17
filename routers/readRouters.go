@@ -62,6 +62,10 @@ func HandlePlaylistRead(w http.ResponseWriter, r *http.Request) {
 		ID:    idInt,
 		Route: route,
 	})
+	if errors.Is(err, query.ErrPlaylistNotFound) {
+		responder.SendError(w, http.StatusNotFound, "playlist not found")
+		return
+	}
 	if err != nil {
 		responder.SendError(w, http.StatusInternalServerError, "failed to execute query", err)
 		return

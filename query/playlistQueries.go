@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -82,6 +83,10 @@ func ListPlaylists(db db.Queryable, req ListPlaylistsRequest) ([]structs.Playlis
 	return playlists, nil
 }
 
+// ErrPlaylistNotFound is GetPlaylist's answer when no playlist matches, so
+// handlers can answer 404 instead of treating it as a failed query.
+var ErrPlaylistNotFound = errors.New("no playlist found")
+
 type GetPlaylistRequest struct {
 	ID    *int
 	Route *string
@@ -121,7 +126,7 @@ func GetPlaylist(db db.Queryable, req GetPlaylistRequest) (*structs.Playlist, er
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("no playlist found")
+		return nil, ErrPlaylistNotFound
 	}
 
 	var playlist structs.Playlist
