@@ -64,7 +64,7 @@ func triggerCaptionGeneration() {
 		   LEFT JOIN video_captions vc
 		     ON vc.video_id = v.id AND vc.language = ?
 		  WHERE vc.id IS NULL
-		    AND v.url LIKE '%cloudflare%'
+		    AND (v.url LIKE '%cloudflare%' OR v.url LIKE '%videodelivery.net%')
 		    AND v.duration IS NOT NULL AND v.duration > 0 AND v.duration <= ?
 		  LIMIT ?`,
 		captionLanguage, maxCaptionDurationSec, captionsPerRun,

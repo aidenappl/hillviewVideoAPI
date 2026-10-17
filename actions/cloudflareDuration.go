@@ -10,21 +10,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hillview.tv/videoAPI/streamurl"
+
 	"github.com/hillview.tv/videoAPI/env"
 )
 
 // CloudflareID derives the Stream UID from a video's stored url, e.g.
 // https://customer-xxxx.cloudflarestream.com/{uid}/manifest/video.m3u8 -> {uid}.
 // Returns "" when the url is not a Cloudflare Stream url.
+// CloudflareID returns the Stream uid in a stored url; see package streamurl.
 func CloudflareID(url string) string {
-	if !strings.Contains(url, "cloudflare") {
-		return ""
-	}
-	parts := strings.Split(url, "/")
-	if len(parts) < 3 {
-		return ""
-	}
-	return parts[len(parts)-3]
+	return streamurl.ID(url)
 }
 
 type cloudflareStreamResponse struct {

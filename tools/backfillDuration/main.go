@@ -147,7 +147,7 @@ func main() {
 	}
 
 	rows, err := database.Query(
-		"SELECT id, url FROM videos WHERE (duration IS NULL OR duration = 0) AND url LIKE '%cloudflare%'",
+		"SELECT id, url FROM videos WHERE (duration IS NULL OR duration = 0) AND (url LIKE '%cloudflare%' OR url LIKE '%videodelivery.net%')",
 	)
 	if err != nil {
 		log.Fatalf("query videos: %v", err)
