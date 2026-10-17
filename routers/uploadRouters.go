@@ -104,7 +104,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	resetMultipart := func(w http.ResponseWriter) {
 		files, err := os.ReadDir("/tmp")
 		if err != nil {
-			responder.SendError(w, http.StatusBadRequest, "failed to clear tmp: "+err.Error())
+			responder.SendError(w, http.StatusBadRequest, "failed to clear tmp", err)
 			return
 		}
 		res := &[]string{}
@@ -127,7 +127,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Convert the subject to an int
 	sub, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to get subject: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to get subject", err)
 		resetMultipart(w)
 		return
 	}
@@ -135,7 +135,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Get the file from the form data
 	file, fileHeader, err := r.FormFile("upload")
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to get formfile: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to get formfile", err)
 		resetMultipart(w)
 		return
 	}
@@ -150,7 +150,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	// Upload the temporary file to s3
 	response, err := actions.UploadMultipart(file, fileHeader, generated)
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to upload to s3: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to upload to s3", err)
 		resetMultipart(w)
 		return
 	}
@@ -166,7 +166,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 		ThumbnailTimestampPct: 0.5,
 	})
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to marshal the post body: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to marshal the post body", err)
 		resetMultipart(w)
 		return
 	}
@@ -176,7 +176,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to create post to cloudflare: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to create post to cloudflare", err)
 		resetMultipart(w)
 		return
 	}
@@ -184,7 +184,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("X-Auth-Key", env.CloudflareKey)
 	res, err := client.Do(req)
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to execute post to cloudflare: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to execute post to cloudflare", err)
 		resetMultipart(w)
 		return
 	}
@@ -195,7 +195,7 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 	body := CloudflareResponse{}
 	err = json.NewDecoder(res.Body).Decode(&body)
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to decode body from cloudflare: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to decode body from cloudflare", err)
 		resetMultipart(w)
 		return
 	}
@@ -233,7 +233,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 
 	sub, err := strconv.Atoi(claims.Subject)
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to get subject: "+err.Error())
+		responder.SendError(w, http.StatusBadRequest, "failed to get subject", err)
 		return
 	}
 

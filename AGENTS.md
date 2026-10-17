@@ -130,6 +130,7 @@ Event catalogue:
 
 ## 9. Rules & guardrails
 
+- Never send an error's text to the client (`"…: "+err.Error()`, `http.Error(w, err.Error(), …)`): pass `err` as the cause — `SendError(…, err)` or `telemetry.RecordFailureW(w, msg, err)` — so it reaches Monitor, and the client gets a plain message. `telemetry/noleak_test.go` fails the build otherwise.
 - Never point `MONITOR_API_KEY` at a key from another zone or the control plane — events would file under someone else's tenant silently.
 - Never add `ReadTimeout`/`WriteTimeout` to the server without exempting uploads; only `ReadHeaderTimeout` is set on purpose.
 - Keep `telemetry/` identical across the five Hillview APIs.
