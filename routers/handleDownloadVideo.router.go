@@ -21,7 +21,7 @@ const DOWNLOAD_LINK_TTL = 15 * time.Minute
 
 // HandleDownloadVideo answers GET /download/{query} with a 302 to a URL the
 // browser saves as "<video title>.mp4". The bytes come straight from S3 or
-// Cloudflare Stream — never through this API or the web server, which sit on
+// Mux — never through this API or the web server, which sit on
 // the studio's single WAN.
 func HandleDownloadVideo(w http.ResponseWriter, r *http.Request) {
 	q := mux.Vars(r)["query"]

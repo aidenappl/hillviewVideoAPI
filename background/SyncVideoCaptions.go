@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"errors"
 	"log"
 	"time"
 
@@ -13,32 +12,27 @@ import (
 )
 
 const (
-	// captionSyncInterval controls how often we reconcile captions with Cloudflare.
+	// captionSyncInterval controls how often we reconcile captions with Mux.
 	captionSyncInterval = 10 * time.Minute
-	// captionLanguage — Cloudflare generated captions only support English in beta.
+	// captionLanguage is the only caption language Hillview stores.
 	captionLanguage = "en"
-	// maxCaptionDurationSec — Cloudflare can't generate captions for videos > 2h.
-	maxCaptionDurationSec = 7200
-	// captionsPerRun caps Cloudflare calls per phase per tick.
+	// captionsPerRun caps Mux calls per phase per tick.
 	captionsPerRun = 20
-	// captionRequestInterval throttles individual Cloudflare calls. The generate
-	// endpoint (Workers AI) is rate-limited tighter than reads, so pace gently.
+	// captionRequestInterval throttles individual Mux calls.
 	captionRequestInterval = 1 * time.Second
 )
 
-// StartVideoCaptionSync drives AI caption generation + transcript capture:
+// StartVideoCaptionSync is the fallback for the Mux track webhooks. Each tick
+// it advances captions for Mux videos (actions.SyncMuxCaption):
 //
-//	Phase 1 (trigger): eligible Cloudflare videos (duration known, ≤2h) with no
-//	  caption row → POST generate, insert a row as "inprogress".
-//	Phase 2 (collect): rows still "inprogress" → poll Cloudflare; when "ready",
-//	  download the VTT, store it + a plain-text transcript; on "error", mark it.
+//	Phase 1 (trigger): Mux videos with no caption row → generation is requested
+//	  when the asset has no English track; the row becomes "inprogress"
+//	  (or "ready" straight away when the track already exists).
+//	Phase 2 (collect): rows still "inprogress" → the VTT and a plain-text
+//	  transcript are stored once Mux's track is ready; "error" when it failed.
 //
-// Mux videos go through actions.SyncMuxCaption in both phases: it requests
-// generation when the asset has no English track and stores the VTT once the
-// track is ready (the track.ready webhook usually gets there first).
-//
-// Cloudflare owns transcription (Workers AI); this job orchestrates and persists
-// the result so the transcript is available for SEO and the player gets captions.
+// Mux owns transcription (Whisper); this job persists the result so the
+// transcript is available for SEO and the caption editor.
 func StartVideoCaptionSync(ctx context.Context) {
 	ticker := time.NewTicker(captionSyncInterval)
 	defer ticker.Stop()
@@ -57,170 +51,55 @@ func StartVideoCaptionSync(ctx context.Context) {
 }
 
 func reconcileCaptions() {
-	triggerCaptionGeneration()
-	collectReadyCaptions()
-}
-
-// Phase 1: trigger generation for eligible videos that have no caption row yet.
-func triggerCaptionGeneration() {
-	rows, err := db.DB.Query(
+	// Phase 1: Mux videos that have never had a caption row.
+	syncMuxCaptions(captionTargets(
 		`SELECT v.id, v.url
 		   FROM videos v
 		   LEFT JOIN video_captions vc
 		     ON vc.video_id = v.id AND vc.language = ?
 		  WHERE vc.id IS NULL
 		    AND v.status <> 4
-		    AND (
-		      ((v.url LIKE '%cloudflare%' OR v.url LIKE '%videodelivery.net%')
-		        AND v.duration IS NOT NULL AND v.duration > 0 AND v.duration <= ?)
-		      OR v.url LIKE 'https://stream.mux.com/%'
-		    )
+		    AND `+streamurl.MuxSQL+`
 		  LIMIT ?`,
-		captionLanguage, maxCaptionDurationSec, captionsPerRun,
-	)
-	if err != nil {
-		log.Printf("caption sync: trigger query failed: %v", err)
-		telemetry.Error(context.Background(), "caption_sync.query.failed", err, map[string]any{"stage": "trigger"})
-		return
-	}
+		"trigger",
+	), "trigger")
 
-	type target struct {
-		id  int
-		uid string
-	}
-	var targets []target
-	var muxTargets []muxTarget
-	for rows.Next() {
-		var id int
-		var url string
-		if err := rows.Scan(&id, &url); err != nil {
-			continue
-		}
-		if uid := actions.CloudflareID(url); uid != "" {
-			targets = append(targets, target{id: id, uid: uid})
-		} else if streamurl.IsMux(url) {
-			muxTargets = append(muxTargets, muxTarget{id: id, url: url})
-		}
-	}
-	rows.Close()
-
-	syncMuxCaptions(muxTargets, "trigger")
-
-	for i, t := range targets {
-		if i > 0 {
-			time.Sleep(captionRequestInterval)
-		}
-		err := actions.GenerateCaptions(t.uid, captionLanguage)
-		if errors.Is(err, actions.ErrRateLimited) {
-			// transient — leave no row so it's retried next tick
-			continue
-		}
-		status := "inprogress"
-		if err != nil {
-			log.Printf("caption sync: generate failed for video %d: %v", t.id, err)
-			telemetry.Warn(context.Background(), "caption_sync.generate.failed", err, map[string]any{"video_id": t.id})
-			status = "error"
-		}
-		if _, err := db.DB.Exec(
-			`INSERT INTO video_captions (video_id, language, status)
-			 VALUES (?, ?, ?)
-			 ON DUPLICATE KEY UPDATE status = VALUES(status)`,
-			t.id, captionLanguage, status,
-		); err != nil {
-			log.Printf("caption sync: insert row failed for video %d: %v", t.id, err)
-			telemetry.Error(context.Background(), "caption_sync.insert.failed", err, map[string]any{"video_id": t.id})
-		}
-	}
-	if len(targets) > 0 {
-		log.Printf("caption sync: triggered generation for %d videos", len(targets))
-	}
-}
-
-// Phase 2: poll in-progress captions; store transcript when ready.
-func collectReadyCaptions() {
-	rows, err := db.DB.Query(
-		`SELECT vc.video_id, v.url
+	// Phase 2: captions Mux is still producing.
+	syncMuxCaptions(captionTargets(
+		`SELECT v.id, v.url
 		   FROM video_captions vc
 		   JOIN videos v ON v.id = vc.video_id
 		  WHERE vc.language = ? AND vc.status = 'inprogress'
+		    AND `+streamurl.MuxSQL+`
 		  LIMIT ?`,
-		captionLanguage, captionsPerRun,
-	)
-	if err != nil {
-		log.Printf("caption sync: collect query failed: %v", err)
-		telemetry.Error(context.Background(), "caption_sync.query.failed", err, map[string]any{"stage": "collect"})
-		return
-	}
-
-	type target struct {
-		id  int
-		uid string
-	}
-	var targets []target
-	var muxTargets []muxTarget
-	for rows.Next() {
-		var id int
-		var url string
-		if err := rows.Scan(&id, &url); err != nil {
-			continue
-		}
-		if uid := actions.CloudflareID(url); uid != "" {
-			targets = append(targets, target{id: id, uid: uid})
-		} else if streamurl.IsMux(url) {
-			muxTargets = append(muxTargets, muxTarget{id: id, url: url})
-		}
-	}
-	rows.Close()
-
-	syncMuxCaptions(muxTargets, "collect")
-
-	collected := 0
-	for i, t := range targets {
-		if i > 0 {
-			time.Sleep(captionRequestInterval)
-		}
-		status, err := actions.CaptionStatus(t.uid, captionLanguage)
-		if err != nil {
-			log.Printf("caption sync: status check failed for video %d: %v", t.id, err)
-			telemetry.Warn(context.Background(), "caption_sync.status.failed", err, map[string]any{"video_id": t.id})
-			continue
-		}
-		switch status {
-		case "ready":
-			vtt, err := actions.FetchVTT(t.uid, captionLanguage)
-			if err != nil {
-				log.Printf("caption sync: fetch vtt failed for video %d: %v", t.id, err)
-				telemetry.Warn(context.Background(), "caption_sync.fetch_vtt.failed", err, map[string]any{"video_id": t.id})
-				continue
-			}
-			plain := actions.VTTToPlainText(vtt)
-			if _, err := db.DB.Exec(
-				`UPDATE video_captions SET status = 'ready', vtt = ?, plain_text = ?
-				 WHERE video_id = ? AND language = ?`,
-				vtt, plain, t.id, captionLanguage,
-			); err != nil {
-				log.Printf("caption sync: save failed for video %d: %v", t.id, err)
-				telemetry.Error(context.Background(), "caption_sync.save.failed", err, map[string]any{"video_id": t.id})
-				continue
-			}
-			collected++
-		case "error":
-			db.DB.Exec(
-				`UPDATE video_captions SET status = 'error' WHERE video_id = ? AND language = ?`,
-				t.id, captionLanguage,
-			)
-		default:
-			// still inprogress — try again next tick
-		}
-	}
-	if collected > 0 {
-		log.Printf("caption sync: stored transcripts for %d videos", collected)
-	}
+		"collect",
+	), "collect")
 }
 
 type muxTarget struct {
 	id  int
 	url string
+}
+
+// captionTargets runs a query taking (language, limit) and returning (id, url).
+func captionTargets(q, stage string) []muxTarget {
+	rows, err := db.DB.Query(q, captionLanguage, captionsPerRun)
+	if err != nil {
+		log.Printf("caption sync: %s query failed: %v", stage, err)
+		telemetry.Error(context.Background(), "caption_sync.query.failed", err, map[string]any{"stage": stage})
+		return nil
+	}
+	defer rows.Close()
+
+	var targets []muxTarget
+	for rows.Next() {
+		var t muxTarget
+		if err := rows.Scan(&t.id, &t.url); err != nil {
+			continue
+		}
+		targets = append(targets, t)
+	}
+	return targets
 }
 
 // syncMuxCaptions advances each Mux video's caption one step (see

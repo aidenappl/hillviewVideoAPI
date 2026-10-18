@@ -23,7 +23,7 @@ const (
 // Content-Disposition override.
 type Presigner func(key string, disposition string) (string, error)
 
-var cloudflareFilenameDisallowed = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
+var downloadFilenameDisallowed = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
 
 // Target builds the redirect for a stored download URL.
 func Target(raw string, title string, presign Presigner) (string, error) {
@@ -42,16 +42,10 @@ func Target(raw string, title string, presign Presigner) (string, error) {
 			return "", fmt.Errorf("download url %q has no object key", raw)
 		}
 		return presign(key, ContentDisposition(title))
-	case strings.HasSuffix(u.Hostname(), ".cloudflarestream.com"):
-		// Stream sets Content-Disposition itself from ?filename=, and appends .mp4.
-		qs := u.Query()
-		qs.Set("filename", CloudflareFilename(title))
-		u.RawQuery = qs.Encode()
-		return u.String(), nil
 	case u.Hostname() == MUX_STREAM_HOST:
 		// Mux sets Content-Disposition from ?download= and appends the extension.
 		qs := u.Query()
-		qs.Set("download", CloudflareFilename(title))
+		qs.Set("download", DownloadFilename(title))
 		u.RawQuery = qs.Encode()
 		return u.String(), nil
 	default:
@@ -104,10 +98,10 @@ func baseName(title string) string {
 	return cleaned
 }
 
-// CloudflareFilename fits Stream's rule: [A-Za-z0-9_-], at most 120 chars.
-// Mux's ?download= gets the same safe name.
-func CloudflareFilename(title string) string {
-	name := cloudflareFilenameDisallowed.ReplaceAllString(strings.TrimSpace(title), "-")
+// DownloadFilename is the name Mux saves a download as (?download=):
+// [A-Za-z0-9_-], at most 120 chars.
+func DownloadFilename(title string) string {
+	name := downloadFilenameDisallowed.ReplaceAllString(strings.TrimSpace(title), "-")
 	name = strings.Trim(name, "-")
 	if len(name) > 120 {
 		name = strings.TrimRight(name[:120], "-")

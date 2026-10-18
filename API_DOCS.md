@@ -22,7 +22,6 @@ The HillviewTV Video API provides a comprehensive set of endpoints for managing 
   - [Spotlights](#spotlights)
   - [Newsletter](#newsletter)
   - [Upload](#upload)
-  - [Cloudflare Integration](#cloudflare-integration)
 
 ---
 
@@ -136,9 +135,8 @@ curl -X GET "https://api.example.com/video/v1.1/list/videos?limit=10&offset=0&so
       "title": "Video Title",
       "description": "Video description",
       "thumbnail": "https://content.hillview.tv/thumbnails/image.jpg",
-      "cloudflare_id": "cf_id_123",
-      "mux_playback_id": null,
-      "url": "https://videodelivery.net/cf_id_123/manifest/video.m3u8",
+      "mux_playback_id": "{playback_id}",
+      "url": "https://stream.mux.com/{playback_id}.m3u8",
       "download_url": "https://download.url/video.mp4",
       "allow_downloads": true,
       "views": 1234,
@@ -185,9 +183,8 @@ curl -X GET "https://api.example.com/video/v1.1/read/videoByID/123"
     "title": "Video Title",
     "description": "Video description",
     "thumbnail": "https://content.hillview.tv/thumbnails/image.jpg",
-    "cloudflare_id": "cf_id_123",
-    "mux_playback_id": null,
-    "url": "https://videodelivery.net/cf_id_123/manifest/video.m3u8",
+    "mux_playback_id": "{playback_id}",
+    "url": "https://stream.mux.com/{playback_id}.m3u8",
     "download_url": "https://download.url/video.mp4",
     "allow_downloads": true,
     "views": 1234,
@@ -237,9 +234,8 @@ curl -X GET "https://api.example.com/video/v1.1/video/abc123-def456"
     "title": "Video Title",
     "description": "Video description",
     "thumbnail": "https://content.hillview.tv/thumbnails/image.jpg",
-    "cloudflare_id": "cf_id_123",
-    "mux_playback_id": null,
-    "url": "https://videodelivery.net/cf_id_123/manifest/video.m3u8",
+    "mux_playback_id": "{playback_id}",
+    "url": "https://stream.mux.com/{playback_id}.m3u8",
     "download_url": "https://download.url/video.mp4",
     "allow_downloads": true,
     "views": 1234,
@@ -287,7 +283,7 @@ curl -X POST "https://api.example.com/video/v1.1/create/video" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "My New Video",
-    "url": "https://videodelivery.net/abc123/manifest/video.m3u8",
+    "url": "https://stream.mux.com/{playback_id}.m3u8",
     "description": "This is a great video",
     "thumbnail": "https://content.hillview.tv/thumbnails/image.jpg"
   }'
@@ -653,7 +649,7 @@ curl -X POST "https://api.example.com/video/v1.1/upload/thumbnail" \
 
 ## Mux Integration
 
-New uploads go to Mux. Cloudflare Stream routes below stay until the library has moved.
+Every playable video is on Mux. The Cloudflare Stream routes (`/upload/cf/*`) were removed in October 2026.
 
 ### Create Mux Direct Upload 🔒
 
@@ -700,203 +696,6 @@ Public. A video's stored, ready caption as `text/vtt` (any video status); 404 wh
 
 ---
 
-## Cloudflare Integration
-
-### Cloudflare Direct Upload 🔒
-
-#### `POST /video/v1.1/upload/cf/upload`
-
-Initiate a direct upload to Cloudflare Stream using the TUS protocol.
-
-**Authentication:** Required (Access Token)
-
-**Request Headers:**
-
-| Header            | Required | Description                |
-| ----------------- | -------- | -------------------------- |
-| `Tus-Resumable`   | ✅       | Must be `1.0.0`            |
-| `Upload-Length`   | ✅       | Total upload size in bytes |
-| `Upload-Metadata` | ✅       | Base64-encoded metadata    |
-| `Origin`          | ✅       | Request origin             |
-
-**Example Request:**
-
-```bash
-curl -X POST "https://api.example.com/video/v1.1/upload/cf/upload" \
-  -H "Authorization: Bearer <access_token>" \
-  -H "Tus-Resumable: 1.0.0" \
-  -H "Upload-Length: 123456789" \
-  -H "Upload-Metadata: name dmlkZW8ubXA0"
-```
-
-**Success Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "request was successful",
-  "data": {
-    "location": "https://upload.videodelivery.net/tus/abc123..."
-  }
-}
-```
-
-**Response Headers:**
-
-- `Location` - The TUS upload URL for resumable uploads
-
-**Error Responses:**
-
-- `406 Not Acceptable` - Error from Cloudflare
-- `413 Request Entity Too Large` - Out of storage
-
----
-
-### Get Cloudflare Video Status 🔒
-
-#### `GET /video/v1.1/upload/cf/{id}`
-
-Get the processing status of a video in Cloudflare Stream.
-
-**Authentication:** Required (Access Token)
-
-**Path Parameters:**
-
-| Parameter | Type   | Required | Description                     |
-| --------- | ------ | -------- | ------------------------------- |
-| `id`      | string | ✅       | The Cloudflare Stream video UID |
-
-**Example Request:**
-
-```bash
-curl -X GET "https://api.example.com/video/v1.1/upload/cf/abc123" \
-  -H "Authorization: Bearer <access_token>"
-```
-
-**Success Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Cloudflare status retrieved successfully",
-  "data": {
-    "result": {
-      "uid": "abc123",
-      "readyToStream": true,
-      "status": {
-        "state": "ready"
-      },
-      "thumbnail": "https://videodelivery.net/abc123/thumbnails/thumbnail.jpg",
-      "playback": {
-        "hls": "https://videodelivery.net/abc123/manifest/video.m3u8",
-        "dash": "https://videodelivery.net/abc123/manifest/video.mpd"
-      },
-      "duration": 120,
-      "input": {
-        "width": 1920,
-        "height": 1080
-      }
-    },
-    "success": true
-  }
-}
-```
-
----
-
-### Update Cloudflare Video 🔒
-
-#### `POST /video/v1.1/upload/cf/{id}`
-
-Update or refresh a video's status in Cloudflare Stream.
-
-**Authentication:** Required (Access Token)
-
-**Path Parameters:**
-
-| Parameter | Type   | Required | Description                     |
-| --------- | ------ | -------- | ------------------------------- |
-| `id`      | string | ✅       | The Cloudflare Stream video UID |
-
-**Example Request:**
-
-```bash
-curl -X POST "https://api.example.com/video/v1.1/upload/cf/abc123" \
-  -H "Authorization: Bearer <access_token>"
-```
-
-**Success Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Cloudflare update initiated successfully",
-  "data": { ... }
-}
-```
-
----
-
-### Generate Cloudflare Download 🔒
-
-#### `POST /video/v1.1/upload/cf/{id}/generateDownload`
-
-Generate a downloadable version of a Cloudflare Stream video.
-
-**Authentication:** Required (Access Token)
-
-**Path Parameters:**
-
-| Parameter | Type   | Required | Description                     |
-| --------- | ------ | -------- | ------------------------------- |
-| `id`      | string | ✅       | The Cloudflare Stream video UID |
-
-**Example Request:**
-
-```bash
-curl -X POST "https://api.example.com/video/v1.1/upload/cf/abc123/generateDownload" \
-  -H "Authorization: Bearer <access_token>"
-```
-
-**Success Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Cloudflare download initiated successfully",
-  "data": {
-    "result": {
-      "default": {
-        "url": "https://videodelivery.net/abc123/downloads/default.mp4",
-        "status": "ready"
-      }
-    }
-  }
-}
-```
-
----
-
-### Get Cloudflare Download Status 🔒
-
-#### `GET /video/v1.1/upload/cf/{id}/download`
-
-Check the status of a download generation request.
-
-**Authentication:** Required (Access Token)
-
-**Path Parameters:**
-
-| Parameter | Type   | Required | Description                     |
-| --------- | ------ | -------- | ------------------------------- |
-| `id`      | string | ✅       | The Cloudflare Stream video UID |
-
-**Response:**
-
-- `501 Not Implemented` - This endpoint is currently not implemented
-
----
-
 ## Data Models
 
 ### Video
@@ -908,8 +707,7 @@ Check the status of a download generation request.
   "title": "Video Title",
   "description": "Video description text",
   "thumbnail": "https://content.hillview.tv/thumbnails/image.jpg",
-  "cloudflare_id": "cloudflare-stream-uid",
-  "url": "https://videodelivery.net/uid/manifest/video.m3u8",
+  "url": "https://stream.mux.com/{playback_id}.m3u8",
   "download_url": "https://download-url.com/video.mp4",
   "allow_downloads": true,
   "views": 1234,

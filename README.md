@@ -1,6 +1,6 @@
 # hillviewVideoAPI
 
-Public video catalogue for hillview.tv plus the Cloudflare Stream upload and caption pipeline.
+Public video catalogue for hillview.tv plus the Mux upload and caption pipeline.
 
 > **Hillview platform** · Go API · `/video/v1.1` on api.hillview.tv
 
@@ -8,7 +8,7 @@ Public video catalogue for hillview.tv plus the Cloudflare Stream upload and cap
 
 ## Overview
 
-The public catalogue API for **hillview.tv** (videos, playlists, spotlight, view/download counters, newsletter) plus the team's upload pipeline: Mux direct uploads (Cloudflare Stream for videos not yet migrated), status, downloads, thumbnails, and caption editing. Two background jobs reconcile video durations and AI captions with Cloudflare Stream and Mux.
+The public catalogue API for **hillview.tv** (videos, playlists, spotlight, view/download counters, newsletter) plus the team's upload pipeline: Mux direct uploads, status, downloads, thumbnails, and caption editing. Two background jobs reconcile video durations and AI captions with Cloudflare Stream and Mux.
 
 ## Role in the Hillview ecosystem
 

@@ -2,10 +2,8 @@ package routers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
-	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/query"
 	"github.com/hillview.tv/videoAPI/responder"
@@ -41,17 +39,9 @@ func HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the URL points at Cloudflare Stream, populate duration immediately.
-	// A nil result (still processing / error) leaves the column NULL for the
-	// background sync job to reconcile later.
+	// Duration is filled in by the video.asset.ready webhook or the duration
+	// sync once the url is a ready Mux asset.
 	var duration *int
-	if uid := actions.CloudflareID(*body.URL); uid != "" {
-		duration, err = actions.GetCloudflareDuration(uid)
-		if err != nil {
-			log.Printf("create video: failed to fetch cloudflare duration: %v", err)
-		}
-	}
-
 	upload, err := query.CreateVideo(db.DB, query.CreateVideoRequest{
 		Title:       body.Title,
 		Description: body.Description,

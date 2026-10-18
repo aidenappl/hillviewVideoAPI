@@ -2,8 +2,8 @@
 // and extracts their provider ids. It has no dependencies on env or the
 // database, so it is unit-tested directly.
 //
-// Two providers are stored while the library moves from Cloudflare Stream to
-// Mux:
+// Videos play from Mux. Cloudflare Stream urls remain only on archived rows
+// (and in videos.legacy_url) from before the October 2026 migration:
 //
 //   - Cloudflare Stream, in both url forms: the customer subdomain
 //     (customer-….cloudflarestream.com, newer uploads) and videodelivery.net
