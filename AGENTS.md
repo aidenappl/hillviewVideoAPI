@@ -146,7 +146,7 @@ Event catalogue:
 
 ## 8. Operations
 
-- **Deployed on Lattice stack 19 "Hillview API"** (worker-3, `10.15.10.75`), container `hillview-video-api`, host port `8002`. Stack env holds the secrets plus `MONITOR_HILLVIEW_INGEST_URL` / `MONITOR_HILLVIEW_INGEST_KEY`; the container maps them to `MONITOR_INGEST_URL` / `MONITOR_API_KEY` and mounts a named volume at `/var/lib/monitor-spool`.
+- **Deployed on Lattice stack 19 "Hillview API"** (worker-3, `10.15.10.75`), container `hillview-video-api`, host port `8002`. Stack env holds the secrets plus `MONITOR_HILLVIEW_INGEST_URL` / `MONITOR_HILLVIEW_INGEST_KEY`; the container maps them to `MONITOR_INGEST_URL` / `MONITOR_API_KEY`. Keyring: the container gets `KEYRING_URL=${KEYRING_URL}` (Lattice global) and `KEYRING_ACCESS_KEY_ID` / `KEYRING_SECRET_ACCESS_KEY` from the stack's secret env `KEYRING_HILLVIEW_VIDEO_ACCESS_KEY_ID` / `KEYRING_HILLVIEW_VIDEO_SECRET_ACCESS_KEY` — Keyring token **41 `hillview-video-api`**, granted `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`. A boot logs `keyring: loaded N secrets`, and `keyring_access_logs` with `token_id: 41` shows the reads and mounts a named volume at `/var/lib/monitor-spool`.
 - **CI:** push to `main` → `push-to-registry.yml` builds `registry.appleby.cloud/hillview-video-api:latest` → `LATTICE_DEPLOY_URL?container=…` redeploys this container. Env or compose changes need a **stack Deploy** in Lattice — a container redeploy reuses the old config.
 - **Logs:** `lattice_get_container_logs`; **errors:** Monitor zone hillview (`monitor_list_issues` with `service: hillview-video-api`).
 - **Health:** `GET /healthcheck` (Docker healthcheck) and the healthchecks.io heartbeat. `https://api.hillview.tv/` itself has no upstream — probe a prefixed route.
