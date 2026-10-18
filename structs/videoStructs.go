@@ -11,6 +11,7 @@ type Video struct {
 	Description    string      `json:"description"`
 	Thumbnail      string      `json:"thumbnail"`
 	CloudflareID   *string     `json:"cloudflare_id"`
+	MuxPlaybackID  *string     `json:"mux_playback_id"`
 	URL            string      `json:"url"`
 	DownloadURL    *string     `json:"download_url"`
 	AllowDownloads bool        `json:"allow_downloads"`

@@ -12,7 +12,7 @@ Served at `https://api.hillview.tv/video/v1.1` (NPM path routing on the shared `
 - `github.com/Masterminds/squirrel` + `github.com/go-sql-driver/mysql` (MariaDB, no ORM)
 - `github.com/gorilla/handlers` for CORS — a legacy deviation from the estate standard (`rs/cors`); leave it unless doing a deliberate migration
 - `github.com/aidenappl/go-monitor` **v0.0.9** — telemetry to Monitor zone `hillview` (§6)
-- Also: AWS SDK v1 (S3), Cloudflare Stream API, SendGrid, golang-jwt v5
+- Also: AWS SDK v1 (S3), Cloudflare Stream API, Mux Video API (`mux/`, plain `net/http`, no SDK), SendGrid, golang-jwt v5
 
 ## 3. Project structure
 
@@ -24,7 +24,9 @@ hillviewVideoAPI/
   awsBridge/             # S3 helpers
   background/            # heartbeat, `StartVideoDurationSync`, `StartVideoCaptionSync`
   db/                    # connection + `PingDB`
-  streamurl/             # recognises both Stream url forms (customer-….cloudflarestream.com and 2022-era videodelivery.net) + uid + SQL filter; no env/DB deps. Use it, never a bare LIKE '%cloudflare%'
+  streamurl/             # recognises both Stream url forms (customer-….cloudflarestream.com and 2022-era videodelivery.net) and Mux urls (stream.mux.com/{playback_id}.m3u8): ProviderOf, ID, MuxPlaybackID, SQL/MuxSQL filters; no env/DB deps. Use it, never a bare LIKE '%cloudflare%'
+  mux/                   # Mux Video API client (assets, direct uploads, text tracks, generated captions, static MP4s), webhook signature verification, public url builders; no env deps, unit-tested against httptest
+  migrations/            # hand-written SQL for hillviewtv, applied with `go run ./tools/migrate [-apply] migrations/<file>.sql` (reads DATABASE_DSN, prints host/db only, dry run by default). db.hillview.tv:3306 is not reachable from outside the studio LAN
   downloads/             # download redirect targets: presigned S3 (content.hillview.tv) or Stream ?filename=. No env/DB deps; unit-tested
   jwt/                   # Hillview JWT
   mailer/                # SendGrid
@@ -59,6 +61,8 @@ dev check    # gofmt -w -s . && go vet ./... && go test ./...
 | `JWT_SIGNING_KEY` | yes | Shared Hillview JWT key |
 | `AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY` | yes | S3 (`us-west-2`) |
 | `CLOUDFLARE_UID / CLOUDFLARE_KEY / CLOUDFLARE_TOKEN / CLOUDFLARE_EMAIL` | yes | Cloudflare Stream |
+| `MUX_TOKEN_ID / MUX_TOKEN_SECRET` | no (during migration) | Mux Video API token pair. Unset = Mux calls fail with `mux.ErrNotConfigured`; the service still boots |
+| `MUX_WEBHOOK_SECRET` | no (during migration) | Signing secret of the Mux webhook endpoint, for `mux.VerifyWebhook` |
 | `SENDGRID_API_KEY` | yes | Newsletter mail |
 | `PORT` | no | Listen port (default 8000; Lattice sets 8001–8005) |
 | `HEALTH_CHECK_URL` | yes | healthchecks.io ping URL, hit once a minute |
@@ -78,13 +82,15 @@ Local runs need a reachable MariaDB. Leave the `MONITOR_*` variables unset local
 - Every goroutine starts through `telemetry.Go(ctx, name, fn)` so a panic is reported instead of killing the process.
 - Background failures are reported with `telemetry.Warn` / `telemetry.Error` using `{resource}.{action}.failed` names, alongside the existing `log.Printf`.
 - **A caller's mistake is a 4xx, never a 500.** "Not found" is a sentinel the handler maps to 404 (`query.ErrPlaylistNotFound` → `GET /read/playlist` 404), not a string error that falls through to `SendError(500)` — every such 500 opens a Monitor issue.
-- No tests exist outside `telemetry/` (table-driven, standard `testing`, `monitor.StartRecording`).
+- Tests are table-driven with standard `testing`, in packages with no env/DB deps: `telemetry/` (`monitor.StartRecording`), `streamurl/`, `downloads/`, `mux/` (httptest servers).
 
 ## 6. Domain & architecture
 
 **Request flow:** Cloudflare → NPM (`api.hillview.tv`, path location `/video/v1.1`) → worker-3 `10.15.10.75:8002` → middleware → handler → MariaDB.
 
 **Middleware order** on the `/video/v1.1` subrouter: (request id, where present) → `telemetry.Middleware` → `LoggingMiddleware` → `MuxHeaderMiddleware` → `TokenHandlers` (where present) → route. `/healthcheck` is on the root router, outside all of it, and emits nothing.
+
+**Cloudflare Stream → Mux migration (Oct 2026, in progress).** Both providers are live; `streamurl.ProviderOf(videos.url)` decides which one a row uses, and video responses carry `cloudflare_id` or `mux_playback_id` accordingly. Mux assets are created with `mux.NewAssetSettings`: `basic` quality (free encoding), `max_resolution_tier` 1080p, public playback, a `highest` static MP4 for downloads, and English generated captions. Schema for the later phases is in `migrations/2026-10-18-mux.sql` (`mux_asset_id`, `mux_playback_id`, `legacy_url`); current code does not read those columns yet. Archived videos (status 4) are not migrated to Mux.
 
 **Downloads:** `GET /video/v1.1/download/{uuid|id}` answers **302** to a link the browser saves as `<title>.mp4` — a 15-minute presigned S3 URL with `response-content-disposition` for `content.hillview.tv` objects (signed for `us-west-1`, path-style), or the Stream URL with `?filename=` for Cloudflare. 403 when `allow_downloads` is off. The bytes never cross the studio WAN; hillview.tv links here instead of proxying files itself. Counting stays on `POST /recordDownload/{uuid}`.
 
