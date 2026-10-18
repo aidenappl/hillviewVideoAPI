@@ -174,6 +174,11 @@ func HandleMuxWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, v := range videos {
+		// tools/migrateToMux stores the asset ids before the row's url moves
+		// to Mux; until it does, the row still plays from Cloudflare Stream.
+		if !streamurl.IsMux(v.URL) {
+			continue
+		}
 		switch event.Type {
 		case "video.asset.ready":
 			if _, err := actions.SyncMuxDuration(v.ID, v.URL); err != nil {
