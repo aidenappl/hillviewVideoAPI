@@ -12,18 +12,14 @@ import (
 )
 
 var (
-	Port            = getEnv("PORT", "8000")
-	DatabaseDSN     = getEnvOrPanic("DATABASE_DSN")
-	JWTSigningKey   = getEnvOrPanic("JWT_SIGNING_KEY")
-	AWSRegion       = getEnvOrPanic("AWS_REGION")
-	AWSKey          = getEnvOrPanic("AWS_ACCESS_KEY_ID")
-	AWSSecret       = getEnvOrPanic("AWS_SECRET_ACCESS_KEY")
-	CloudflareUID   = getEnvOrPanic("CLOUDFLARE_UID")
-	CloudflareKey   = getEnvOrPanic("CLOUDFLARE_KEY")
-	CloudflareToken = getEnvOrPanic("CLOUDFLARE_TOKEN")
-	CloudflareEmail = getEnvOrPanic("CLOUDFLARE_EMAIL")
-	SendgridAPIKey  = getEnvOrPanic("SENDGRID_API_KEY")
-	HealthCheckURL  = getEnvOrPanic("HEALTH_CHECK_URL")
+	Port           = getEnv("PORT", "8000")
+	DatabaseDSN    = getEnvOrPanic("DATABASE_DSN")
+	JWTSigningKey  = getEnvOrPanic("JWT_SIGNING_KEY")
+	AWSRegion      = getEnvOrPanic("AWS_REGION")
+	AWSKey         = getEnvOrPanic("AWS_ACCESS_KEY_ID")
+	AWSSecret      = getEnvOrPanic("AWS_SECRET_ACCESS_KEY")
+	SendgridAPIKey = getEnvOrPanic("SENDGRID_API_KEY")
+	HealthCheckURL = getEnvOrPanic("HEALTH_CHECK_URL")
 
 	// Content storage for thumbnail uploads. With CONTENT_S3_ENDPOINT set they
 	// go to that S3-compatible store (OpenBucket); unset, to AWS S3 with the
@@ -35,9 +31,9 @@ var (
 	ContentS3SecretAccessKey = getSecret("CONTENT_S3_SECRET_ACCESS_KEY")
 	ContentPublicBaseURL     = strings.TrimRight(getEnv("CONTENT_PUBLIC_BASE_URL", "https://content.hillview.tv"), "/")
 
-	// Mux (replacing Cloudflare Stream), resolved from the environment or
-	// Keyring. Optional while both providers run: unset, Mux calls fail with
-	// mux.ErrNotConfigured instead of the service failing to boot.
+	// Mux, resolved from the environment or Keyring. Optional: unset, Mux
+	// calls fail with mux.ErrNotConfigured instead of the service failing to
+	// boot.
 	MuxTokenID       = getSecret("MUX_TOKEN_ID")
 	MuxTokenSecret   = getSecret("MUX_TOKEN_SECRET")
 	MuxWebhookSecret = getSecret("MUX_WEBHOOK_SECRET")

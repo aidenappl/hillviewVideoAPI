@@ -304,12 +304,8 @@ func CreateVideo(db db.Queryable, req CreateVideoRequest) (*structs.Video, error
 
 }
 
-// setProviderIDs fills the streaming provider id derived from the video url:
-// cloudflare_id for Stream videos, mux_playback_id for Mux videos.
+// setProviderIDs fills mux_playback_id from a Mux video url.
 func setProviderIDs(video *structs.Video) {
-	if id := streamurl.ID(video.URL); id != "" {
-		video.CloudflareID = &id
-	}
 	if id := streamurl.MuxPlaybackID(video.URL); id != "" {
 		video.MuxPlaybackID = &id
 	}

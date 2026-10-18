@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCloudflareFilename(t *testing.T) {
+func TestDownloadFilename(t *testing.T) {
 	tests := []struct {
 		name  string
 		title string
@@ -20,8 +20,8 @@ func TestCloudflareFilename(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CloudflareFilename(tt.title); got != tt.want {
-				t.Errorf("CloudflareFilename(%q) = %q, want %q", tt.title, got, tt.want)
+			if got := DownloadFilename(tt.title); got != tt.want {
+				t.Errorf("DownloadFilename(%q) = %q, want %q", tt.title, got, tt.want)
 			}
 		})
 	}
@@ -71,7 +71,7 @@ func TestTarget(t *testing.T) {
 		{"s3 object is presigned", "https://content.hillview.tv/videos/a%20b.mp4", presign, "https://signed.example/videos/a b.mp4", false},
 		{"console plus is a space", "https://content.hillview.tv/videos/uploads/OK+Matilda+N3+S2.mp4", presign, "https://signed.example/videos/uploads/OK Matilda N3 S2.mp4", false},
 		{"encoded plus stays a plus", "https://content.hillview.tv/videos/C%2B%2B.mp4", presign, "https://signed.example/videos/C++.mp4", false},
-		{"cloudflare gets filename", "https://customer-abc.cloudflarestream.com/uid/downloads/default.mp4", presign, "https://customer-abc.cloudflarestream.com/uid/downloads/default.mp4?filename=My-Video", false},
+		{"cloudflare stream is no longer a download host", "https://customer-abc.cloudflarestream.com/uid/downloads/default.mp4", presign, "", true},
 		{"mux gets download name", "https://stream.mux.com/pb1/highest.mp4", presign, "https://stream.mux.com/pb1/highest.mp4?download=My-Video", false},
 		{"unknown host refused", "https://evil.example.com/x.mp4", presign, "", true},
 		{"content without key refused", "https://content.hillview.tv/", presign, "", true},

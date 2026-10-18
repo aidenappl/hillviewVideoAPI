@@ -439,7 +439,7 @@ func ThumbnailURL(playbackID string, duration *int) string {
 }
 
 // DownloadURL is the MP4 rendition, saved by the browser as <filename>.mp4.
-// filename must already be safe (see downloads.CloudflareFilename).
+// filename must already be safe (see downloads.DownloadFilename).
 func DownloadURL(playbackID, filename string) string {
 	u := "https://stream.mux.com/" + playbackID + "/" + StaticRendition + ".mp4"
 	if filename != "" {

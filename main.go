@@ -124,12 +124,6 @@ func main() {
 	upload.Handle("/video", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleVideoUpload))).Methods(http.MethodPost)
 	upload.Handle("/thumbnail", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleThumbnailUpload))).Methods(http.MethodPost)
 
-	upload.Handle("/cf/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareStatus))).Methods(http.MethodGet)
-	upload.Handle("/cf/{id}/download", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareDownloadStatus))).Methods(http.MethodGet)
-	upload.Handle("/cf/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpdate))).Methods(http.MethodPost)
-	upload.Handle("/cf/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpload))).Methods(http.MethodPost)
-	upload.Handle("/cf/{id}/generateDownload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareDownload))).Methods(http.MethodPost)
-
 	upload.Handle("/mux/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleMuxCreateUpload))).Methods(http.MethodPost)
 	upload.Handle("/mux/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleMuxUploadStatus))).Methods(http.MethodGet)
 
@@ -164,13 +158,13 @@ func main() {
 	// Add the health check polling
 	telemetry.Go(ctx, "background.healthcheck", background.StartHealthCheckPolling)
 
-	// Reconcile video durations with Cloudflare (fills new/edited/processing videos)
+	// Reconcile video durations with Mux (fallback for the asset.ready webhook)
 	telemetry.Go(ctx, "background.duration_sync", background.StartVideoDurationSync)
 
-	// Generate + capture AI captions/transcripts from Cloudflare
+	// Collect Mux AI captions/transcripts (fallback for the track webhooks)
 	telemetry.Go(ctx, "background.caption_sync", background.StartVideoCaptionSync)
 
-	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Cookies", "Accept", "Cookie", "X-CSRF-Token", "Tus-Resumable", "Upload-Length", "Upload-Metadata"})
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin", "Authorization", "Cookies", "Accept", "Cookie", "X-CSRF-Token"})
 	originsOk := handlers.AllowedOrigins([]string{"https://team.hillview.tv", "https://hillview.tv", "https://live.hillview.tv", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002"})
 	exposedOk := handlers.ExposedHeaders([]string{"X-Request-ID"})
 	allowCredentials := handlers.AllowCredentials()
