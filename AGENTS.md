@@ -134,6 +134,7 @@ Event catalogue:
 | `caption_sync.{generate,status,fetch_vtt}.failed` | warn | a Cloudflare caption call failed (`video_id`); retried next tick |
 | `duration_sync.mux.failed` | warn | Mux lookup for one video failed (`video_id`) |
 | `duration_sync.mux.missing` | warn | Mux has no asset for the video's playback id (404); skipped until restart (`video_id`, `video_status`) |
+| `caption_sync.mux.error` | warn | Mux could not caption a video, stored as caption status `error` (`video_id`, `mux_asset_id`, `reason`: `no_audio` — the asset has no audio track, `track_errored` — Whisper failed, `asset_errored`). Regenerate from the dashboard retries |
 | `caption_sync.mux.failed` | warn | a Mux caption step failed (`video_id`, `stage` = trigger or collect); retried next tick |
 | `mux.ids.store_failed` | warn | resolved Mux ids could not be stored on the row, usually a second row playing the same asset (`video_id`, `mux_asset_id`) |
 | `mux.asset.errored` | warn | the `video.asset.errored` webhook fired for a video (`video_id`, `mux_asset_id`) |

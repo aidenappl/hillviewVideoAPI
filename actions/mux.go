@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -90,11 +91,12 @@ func SyncMuxCaption(videoID int, url string) (string, error) {
 	}
 
 	status := CaptionInProgress
+	reason := ""
 	var vtt, plain *string
 
 	switch {
 	case asset.Status == "errored":
-		status = CaptionError
+		status, reason = CaptionError, "asset_errored"
 	case asset.Status != "ready":
 		// Captions are generated after ingest; check again later.
 	default:
@@ -103,7 +105,7 @@ func SyncMuxCaption(videoID int, url string) (string, error) {
 		case track == nil:
 			audio := asset.AudioTrack()
 			if audio == nil {
-				status = CaptionError
+				status, reason = CaptionError, "no_audio"
 				break
 			}
 			if err := Mux.GenerateCaptions(asset.ID, audio.ID); err != nil {
@@ -117,8 +119,13 @@ func SyncMuxCaption(videoID int, url string) (string, error) {
 			text := VTTToPlainText(body)
 			status, vtt, plain = CaptionReady, &body, &text
 		case track.Status == "errored":
-			status = CaptionError
+			status, reason = CaptionError, "track_errored"
 		}
+	}
+
+	if status == CaptionError {
+		log.Printf("caption sync: video %d caption failed on Mux: %s", videoID, reason)
+		telemetry.Warn(context.Background(), "caption_sync.mux.error", nil, map[string]any{"video_id": videoID, "mux_asset_id": asset.ID, "reason": reason})
 	}
 
 	if err := query.UpsertCaption(db.DB, videoID, captionLang, status, vtt, plain); err != nil {
