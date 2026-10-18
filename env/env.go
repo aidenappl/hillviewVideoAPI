@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aidenappl/go-keyring"
@@ -23,6 +24,16 @@ var (
 	CloudflareEmail = getEnvOrPanic("CLOUDFLARE_EMAIL")
 	SendgridAPIKey  = getEnvOrPanic("SENDGRID_API_KEY")
 	HealthCheckURL  = getEnvOrPanic("HEALTH_CHECK_URL")
+
+	// Content storage for thumbnail uploads. With CONTENT_S3_ENDPOINT set they
+	// go to that S3-compatible store (OpenBucket); unset, to AWS S3 with the
+	// AWS_* credentials. Videos stay on AWS S3 until Mux replaces them.
+	ContentS3Endpoint        = getEnv("CONTENT_S3_ENDPOINT", "")
+	ContentS3Region          = getEnv("CONTENT_S3_REGION", "us-west-1")
+	ContentS3Bucket          = getEnv("CONTENT_S3_BUCKET", "content.hillview.tv")
+	ContentS3AccessKeyID     = getSecret("CONTENT_S3_ACCESS_KEY_ID")
+	ContentS3SecretAccessKey = getSecret("CONTENT_S3_SECRET_ACCESS_KEY")
+	ContentPublicBaseURL     = strings.TrimRight(getEnv("CONTENT_PUBLIC_BASE_URL", "https://content.hillview.tv"), "/")
 
 	// Mux (replacing Cloudflare Stream), resolved from the environment or
 	// Keyring. Optional while both providers run: unset, Mux calls fail with

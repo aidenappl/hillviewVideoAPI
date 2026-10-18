@@ -29,3 +29,26 @@ func Connect() *session.Session {
 	}
 	return sess
 }
+
+// ContentSession is the session for thumbnail uploads: the S3-compatible
+// content store (OpenBucket) when CONTENT_S3_ENDPOINT is set, else AWS.
+func ContentSession() *session.Session {
+	if env.ContentS3Endpoint == "" {
+		return Connect()
+	}
+	sess, err := session.NewSession(
+		&aws.Config{
+			Region:           aws.String(env.ContentS3Region),
+			Endpoint:         aws.String(env.ContentS3Endpoint),
+			S3ForcePathStyle: aws.Bool(true),
+			Credentials: credentials.NewStaticCredentials(
+				env.ContentS3AccessKeyID,
+				env.ContentS3SecretAccessKey,
+				"",
+			),
+		})
+	if err != nil {
+		panic(err)
+	}
+	return sess
+}

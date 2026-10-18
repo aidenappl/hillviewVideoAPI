@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/awsBridge"
+	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
 	"github.com/hillview.tv/videoAPI/mux"
 	"github.com/hillview.tv/videoAPI/responder"
@@ -152,7 +153,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionHandler := awsBridge.Connect()
+	sessionHandler := awsBridge.ContentSession()
 	uploader := s3manager.NewUploader(sessionHandler)
 	file, _, err := r.FormFile("upload")
 	if err != nil {
@@ -166,7 +167,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 
 	//upload to the s3 bucket
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket:      aws.String("content.hillview.tv"),
+		Bucket:      aws.String(env.ContentS3Bucket),
 		ACL:         aws.String("public-read"),
 		Key:         aws.String("thumbnails/" + *aws.String(generated)),
 		Body:        file,
@@ -178,7 +179,7 @@ func HandleThumbnailUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responder.New(w, ThumbnailUploadResponse{
-		URL: "https://content.hillview.tv/thumbnails/" + generated,
+		URL: env.ContentPublicBaseURL + "/thumbnails/" + generated,
 	}, "Thumbnail uploaded successfully")
 
 }
