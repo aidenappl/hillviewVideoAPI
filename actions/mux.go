@@ -49,8 +49,6 @@ func ResolveMuxAsset(videoID int, url string) (*mux.Asset, error) {
 		if assetID, err = Mux.AssetIDForPlayback(pid); err != nil {
 			return nil, err
 		}
-		// A second row playing the same asset trips the unique key; the asset
-		// still resolves, so report it and carry on.
 		if err := query.SetVideoMuxIDs(db.DB, videoID, assetID, pid); err != nil {
 			telemetry.Warn(context.Background(), "mux.ids.store_failed", err, map[string]any{"video_id": videoID, "mux_asset_id": assetID})
 		}
