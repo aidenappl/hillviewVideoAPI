@@ -13,7 +13,7 @@ Served at `https://api.hillview.tv/video/v1.1` (NPM path routing on the shared `
 - `github.com/gorilla/handlers` for CORS — a legacy deviation from the estate standard (`rs/cors`); leave it unless doing a deliberate migration
 - `github.com/aidenappl/go-monitor` **v0.0.9** — telemetry to Monitor zone `hillview` (§6)
 - `github.com/aidenappl/go-keyring` v1.1.0 — optional secrets from Keyring (§4)
-- Also: AWS SDK v1 (S3), Cloudflare Stream API, Mux Video API (`mux/`, plain `net/http`, no SDK), SendGrid, golang-jwt v5
+- Also: AWS SDK v1 (S3: videos on AWS until Mux, thumbnails on OpenBucket via `CONTENT_S3_*`), Cloudflare Stream API, Mux Video API (`mux/`, plain `net/http`, no SDK), SendGrid, golang-jwt v5
 
 ## 3. Project structure
 
@@ -22,7 +22,7 @@ hillviewVideoAPI/
   main.go                # router, middleware order, background jobs, http.Server + graceful shutdown
   env/env.go             # every environment variable (getEnv / getEnvOrPanic)
   actions/               # Cloudflare Stream calls (captions, durations); mux.go = Mux reconcile steps over the DB (ResolveMuxAsset, SyncMuxDuration, SyncMuxCaption, Replace/RegenerateMuxCaption)
-  awsBridge/             # S3 helpers
+  awsBridge/             # S3 sessions: Connect (AWS, videos) and ContentSession (OpenBucket, thumbnails)
   background/            # heartbeat, `StartVideoDurationSync`, `StartVideoCaptionSync`
   db/                    # connection + `PingDB`
   streamurl/             # recognises both Stream url forms (customer-….cloudflarestream.com and 2022-era videodelivery.net) and Mux urls (stream.mux.com/{playback_id}.m3u8): ProviderOf, ID, MuxPlaybackID, SQL/MuxSQL filters; no env/DB deps. Use it, never a bare LIKE '%cloudflare%'
@@ -60,7 +60,11 @@ dev check    # gofmt -w -s . && go vet ./... && go test ./...
 |---|---|---|
 | `DATABASE_DSN` | yes | MariaDB DSN for `hillviewtv` |
 | `JWT_SIGNING_KEY` | yes | Shared Hillview JWT key |
-| `AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY` | yes | S3 (`us-west-2`) |
+| `AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY` | yes | AWS S3 for videos (`content.hillview.tv`, `us-west-1`) until Mux replaces them; thumbnails too while `CONTENT_S3_ENDPOINT` is unset |
+| `CONTENT_S3_ENDPOINT` | no | S3-compatible endpoint (OpenBucket) for thumbnail uploads. Unset = AWS S3 |
+| `CONTENT_S3_REGION / CONTENT_S3_BUCKET` | no | Default `us-west-1` / `content.hillview.tv` |
+| `CONTENT_S3_ACCESS_KEY_ID / CONTENT_S3_SECRET_ACCESS_KEY` | with endpoint | Credentials for `CONTENT_S3_ENDPOINT` — **from Keyring** unless set in the environment |
+| `CONTENT_PUBLIC_BASE_URL` | no | Base of returned thumbnail URLs (default `https://content.hillview.tv`) |
 | `CLOUDFLARE_UID / CLOUDFLARE_KEY / CLOUDFLARE_TOKEN / CLOUDFLARE_EMAIL` | yes | Cloudflare Stream |
 | `MUX_TOKEN_ID / MUX_TOKEN_SECRET` | no (during migration) | Mux Video API token pair — **from Keyring** (secrets 136/135) unless set in the environment. Unset = Mux calls fail with `mux.ErrNotConfigured`; the service still boots |
 | `MUX_WEBHOOK_SECRET` | no (during migration) | Signing secret of the Mux webhook endpoint, for `mux.VerifyWebhook` — **from Keyring** (secret 134) unless set in the environment |
