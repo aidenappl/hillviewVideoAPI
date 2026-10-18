@@ -12,6 +12,7 @@ Served at `https://api.hillview.tv/video/v1.1` (NPM path routing on the shared `
 - `github.com/Masterminds/squirrel` + `github.com/go-sql-driver/mysql` (MariaDB, no ORM)
 - `github.com/gorilla/handlers` for CORS — a legacy deviation from the estate standard (`rs/cors`); leave it unless doing a deliberate migration
 - `github.com/aidenappl/go-monitor` **v0.0.9** — telemetry to Monitor zone `hillview` (§6)
+- `github.com/aidenappl/go-keyring` v1.1.0 — optional secrets from Keyring (§4)
 - Also: AWS SDK v1 (S3), Cloudflare Stream API, Mux Video API (`mux/`, plain `net/http`, no SDK), SendGrid, golang-jwt v5
 
 ## 3. Project structure
@@ -61,8 +62,9 @@ dev check    # gofmt -w -s . && go vet ./... && go test ./...
 | `JWT_SIGNING_KEY` | yes | Shared Hillview JWT key |
 | `AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY` | yes | S3 (`us-west-2`) |
 | `CLOUDFLARE_UID / CLOUDFLARE_KEY / CLOUDFLARE_TOKEN / CLOUDFLARE_EMAIL` | yes | Cloudflare Stream |
-| `MUX_TOKEN_ID / MUX_TOKEN_SECRET` | no (during migration) | Mux Video API token pair. Unset = Mux calls fail with `mux.ErrNotConfigured`; the service still boots |
-| `MUX_WEBHOOK_SECRET` | no (during migration) | Signing secret of the Mux webhook endpoint, for `mux.VerifyWebhook` |
+| `MUX_TOKEN_ID / MUX_TOKEN_SECRET` | no (during migration) | Mux Video API token pair — **from Keyring** (secrets 136/135) unless set in the environment. Unset = Mux calls fail with `mux.ErrNotConfigured`; the service still boots |
+| `MUX_WEBHOOK_SECRET` | no (during migration) | Signing secret of the Mux webhook endpoint, for `mux.VerifyWebhook` — **from Keyring** (secret 134) unless set in the environment |
+| `KEYRING_URL / KEYRING_ACCESS_KEY_ID / KEYRING_SECRET_ACCESS_KEY` | no | Keyring token `hillview-video-api`. `env` loads every secret granted to it once at startup (5s timeout); `getSecret` values prefer the environment, then Keyring. Unset or unreachable = environment only; `KEYRING_SOURCE=env` disables Keyring (tests) |
 | `PUBLIC_API_URL` | no | This API's public base url (default `https://api.hillview.tv/video/v1.1`); Mux fetches edited captions from `{PUBLIC_API_URL}/captions/{uuid}/en.vtt` |
 | `SENDGRID_API_KEY` | yes | Newsletter mail |
 | `PORT` | no | Listen port (default 8000; Lattice sets 8001–8005) |
@@ -72,6 +74,8 @@ dev check    # gofmt -w -s . && go vet ./... && go test ./...
 | `MONITOR_ENV` | no | Event `env` (default `production`) |
 | `MONITOR_SPOOL_DIR` | no | Durable spool directory; events survive a Monitor outage or restart |
 | `MONITOR_STDOUT` | no | `true` also prints events to stdout (default off — the container log keeps its own lines) |
+
+Only the Mux values go through `getSecret` today; the rest are still plain stack env. To move another secret to Keyring: create it, grant it to the `hillview-video-api` token, and read it with `getSecret` (optional) — no stack env change needed.
 
 Local runs need a reachable MariaDB. Leave the `MONITOR_*` variables unset locally unless you are testing telemetry — and then set `MONITOR_ENV` to something other than `production`.
 
