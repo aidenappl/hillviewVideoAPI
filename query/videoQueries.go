@@ -6,6 +6,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/streamurl"
 	"github.com/hillview.tv/videoAPI/structs"
 )
 
@@ -109,14 +110,7 @@ func GetVideo(db db.Queryable, req GetVideoRequest) (*structs.Video, error) {
 		video.CaptionsVTT = nil
 	}
 
-	if strings.Contains(video.URL, "cloudflare") {
-		parts := strings.Split(video.URL, "/")
-		if len(parts) > 0 {
-			video.CloudflareID = &parts[len(parts)-3]
-		} else {
-			video.CloudflareID = nil
-		}
-	}
+	setProviderIDs(&video)
 
 	video.Status = &status
 
@@ -252,14 +246,7 @@ func ListVideos(db db.Queryable, req ListVideosRequest) ([]*structs.Video, error
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		if strings.Contains(video.URL, "cloudflare") {
-			parts := strings.Split(video.URL, "/")
-			if len(parts) > 0 {
-				video.CloudflareID = &parts[len(parts)-3]
-			} else {
-				video.CloudflareID = nil
-			}
-		}
+		setProviderIDs(&video)
 
 		video.Status = &status
 
@@ -315,4 +302,15 @@ func CreateVideo(db db.Queryable, req CreateVideoRequest) (*structs.Video, error
 
 	return GetVideo(db, GetVideoRequest{ID: &j})
 
+}
+
+// setProviderIDs fills the streaming provider id derived from the video url:
+// cloudflare_id for Stream videos, mux_playback_id for Mux videos.
+func setProviderIDs(video *structs.Video) {
+	if id := streamurl.ID(video.URL); id != "" {
+		video.CloudflareID = &id
+	}
+	if id := streamurl.MuxPlaybackID(video.URL); id != "" {
+		video.MuxPlaybackID = &id
+	}
 }

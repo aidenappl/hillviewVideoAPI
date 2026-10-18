@@ -19,6 +19,13 @@ var (
 	SendgridAPIKey  = getEnvOrPanic("SENDGRID_API_KEY")
 	HealthCheckURL  = getEnvOrPanic("HEALTH_CHECK_URL")
 
+	// Mux (replacing Cloudflare Stream). Optional while both providers run:
+	// unset, Mux calls fail with mux.ErrNotConfigured instead of the service
+	// failing to boot.
+	MuxTokenID       = getEnv("MUX_TOKEN_ID", "")
+	MuxTokenSecret   = getEnv("MUX_TOKEN_SECRET", "")
+	MuxWebhookSecret = getEnv("MUX_WEBHOOK_SECRET", "")
+
 	// Monitor (zone hillview). All optional: unset, the service runs without
 	// telemetry rather than failing to boot.
 	MonitorIngestURL = getEnv("MONITOR_INGEST_URL", "")
