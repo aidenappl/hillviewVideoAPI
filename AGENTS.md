@@ -2,7 +2,7 @@
 
 ## 1. What this repo is
 
-The public catalogue API for **hillview.tv** (videos, playlists, spotlight, view/download counters, newsletter) plus the team's upload pipeline: Cloudflare Stream direct uploads, status, downloads, thumbnails, and caption editing. Two background jobs reconcile video durations and generate AI captions from Cloudflare.
+The public catalogue API for **hillview.tv** (videos, playlists, spotlight, view/download counters, newsletter) plus the team's upload pipeline: Mux direct uploads (Cloudflare Stream for videos not yet migrated), status, downloads, thumbnails, and caption editing. Two background jobs reconcile video durations and AI captions with Cloudflare Stream and Mux.
 
 Served at `https://api.hillview.tv/video/v1.1` (NPM path routing on the shared `api.hillview.tv` host). Part of the Hillview platform — legacy codebase lineage; see §9 before copying any of its patterns elsewhere.
 
@@ -20,7 +20,7 @@ Served at `https://api.hillview.tv/video/v1.1` (NPM path routing on the shared `
 hillviewVideoAPI/
   main.go                # router, middleware order, background jobs, http.Server + graceful shutdown
   env/env.go             # every environment variable (getEnv / getEnvOrPanic)
-  actions/               # Cloudflare Stream calls (captions, durations)
+  actions/               # Cloudflare Stream calls (captions, durations); mux.go = Mux reconcile steps over the DB (ResolveMuxAsset, SyncMuxDuration, SyncMuxCaption, Replace/RegenerateMuxCaption)
   awsBridge/             # S3 helpers
   background/            # heartbeat, `StartVideoDurationSync`, `StartVideoCaptionSync`
   db/                    # connection + `PingDB`
@@ -63,6 +63,7 @@ dev check    # gofmt -w -s . && go vet ./... && go test ./...
 | `CLOUDFLARE_UID / CLOUDFLARE_KEY / CLOUDFLARE_TOKEN / CLOUDFLARE_EMAIL` | yes | Cloudflare Stream |
 | `MUX_TOKEN_ID / MUX_TOKEN_SECRET` | no (during migration) | Mux Video API token pair. Unset = Mux calls fail with `mux.ErrNotConfigured`; the service still boots |
 | `MUX_WEBHOOK_SECRET` | no (during migration) | Signing secret of the Mux webhook endpoint, for `mux.VerifyWebhook` |
+| `PUBLIC_API_URL` | no | This API's public base url (default `https://api.hillview.tv/video/v1.1`); Mux fetches edited captions from `{PUBLIC_API_URL}/captions/{uuid}/en.vtt` |
 | `SENDGRID_API_KEY` | yes | Newsletter mail |
 | `PORT` | no | Listen port (default 8000; Lattice sets 8001–8005) |
 | `HEALTH_CHECK_URL` | yes | healthchecks.io ping URL, hit once a minute |
@@ -90,7 +91,13 @@ Local runs need a reachable MariaDB. Leave the `MONITOR_*` variables unset local
 
 **Middleware order** on the `/video/v1.1` subrouter: (request id, where present) → `telemetry.Middleware` → `LoggingMiddleware` → `MuxHeaderMiddleware` → `TokenHandlers` (where present) → route. `/healthcheck` is on the root router, outside all of it, and emits nothing.
 
-**Cloudflare Stream → Mux migration (Oct 2026, in progress).** Both providers are live; `streamurl.ProviderOf(videos.url)` decides which one a row uses, and video responses carry `cloudflare_id` or `mux_playback_id` accordingly. Mux assets are created with `mux.NewAssetSettings`: `basic` quality (free encoding), `max_resolution_tier` 1080p, public playback, a `highest` static MP4 for downloads, and English generated captions. Schema for the later phases is in `migrations/2026-10-18-mux.sql` (`mux_asset_id`, `mux_playback_id`, `legacy_url`); current code does not read those columns yet. Archived videos (status 4) are not migrated to Mux.
+**Cloudflare Stream → Mux migration (Oct 2026, in progress).** Both providers are live; `streamurl.ProviderOf(videos.url)` decides which one a row uses, and video responses carry `cloudflare_id` or `mux_playback_id` accordingly. Mux assets are created with `mux.NewAssetSettings`: `basic` quality (free encoding), `max_resolution_tier` 1080p, public playback, a `highest` static MP4 for downloads, and English generated captions. Archived videos (status 4) are not migrated to Mux; the plan is to keep them as MP4s in `content.hillview.tv/archive/` and delete them from Stream.
+
+- **Uploads:** team.hillview.tv asks `POST /upload/mux/upload` for a direct-upload url, PUTs the file to Mux with UpChunk, and polls `GET /upload/mux/{upload_id}` until the asset is `ready`. The video row is created afterwards through hillviewCoreAPI with `url = https://stream.mux.com/{playback_id}.m3u8`.
+- **Asset ids:** `videos.url` is the source of truth. `actions.ResolveMuxAsset` uses `videos.mux_asset_id` while `mux_playback_id` still matches the url, and otherwise looks the asset up (`GET /playback-ids/{id}`) and stores both columns. `legacy_url` keeps a migrated row's old Stream url.
+- **Webhook** `POST /webhooks/mux` (signed with `MUX_WEBHOOK_SECRET`): `video.asset.ready` → duration; text `track.ready`/`track.errored` → caption, only when the video has no caption row or an `inprogress` one, so hand-edited captions are never overwritten. A webhook that arrives before the video row exists finds nothing; the duration and caption syncs pick those videos up on their next tick.
+- **Captions:** edits are saved to `video_captions` first, then Mux's English tracks are deleted and replaced with a track Mux fetches from the public `GET /captions/{uuid}/en.vtt`. Regenerate deletes the tracks and calls `generate-subtitles` on the audio track.
+- **Downloads:** Mux `download_url`s are `stream.mux.com/{playback_id}/highest.mp4`; `/download/{uuid}` adds `?download=<title>`.
 
 **Downloads:** `GET /video/v1.1/download/{uuid|id}` answers **302** to a link the browser saves as `<title>.mp4` — a 15-minute presigned S3 URL with `response-content-disposition` for `content.hillview.tv` objects (signed for `us-west-1`, path-style), or the Stream URL with `?filename=` for Cloudflare. 403 when `allow_downloads` is off. The bytes never cross the studio WAN; hillview.tv links here instead of proxying files itself. Counting stays on `POST /recordDownload/{uuid}`.
 
@@ -117,6 +124,11 @@ Event catalogue:
 | `caption_sync.query.failed` | error | `stage` = trigger or collect |
 | `caption_sync.{insert,save}.failed` | error | caption row could not be written (`video_id`) |
 | `caption_sync.{generate,status,fetch_vtt}.failed` | warn | a Cloudflare caption call failed (`video_id`); retried next tick |
+| `duration_sync.mux.failed` | warn | Mux lookup for one video failed (`video_id`) |
+| `duration_sync.mux.missing` | warn | Mux has no asset for the video's playback id (404); skipped until restart (`video_id`, `video_status`) |
+| `caption_sync.mux.failed` | warn | a Mux caption step failed (`video_id`, `stage` = trigger or collect); retried next tick |
+| `mux.ids.store_failed` | warn | resolved Mux ids could not be stored on the row, usually a second row playing the same asset (`video_id`, `mux_asset_id`) |
+| `mux.asset.errored` | warn | the `video.asset.errored` webhook fired for a video (`video_id`, `mux_asset_id`) |
 | `video.download.sign_failed` | error | `/download/{uuid}` could not build a named link (`video_id`); the user got the raw URL instead |
 
 `X-Request-ID` is set on every response under the prefix and exposed via CORS, so the web apps' Monitor events can be joined to this service's.

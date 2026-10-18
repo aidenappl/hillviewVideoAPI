@@ -126,6 +126,19 @@ func TestRetryThenSucceed(t *testing.T) {
 	}
 }
 
+func TestAssetIDForPlayback(t *testing.T) {
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/playback-ids/pb1" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		w.Write([]byte(`{"data":{"id":"pb1","policy":"public","object":{"type":"asset","id":"asset9"}}}`))
+	})
+	id, err := c.AssetIDForPlayback("pb1")
+	if err != nil || id != "asset9" {
+		t.Fatalf("AssetIDForPlayback = %q, %v", id, err)
+	}
+}
+
 func TestDeleteMissingIsSuccess(t *testing.T) {
 	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

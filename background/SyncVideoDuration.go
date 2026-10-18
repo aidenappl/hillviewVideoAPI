@@ -10,6 +10,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/mux"
 	"github.com/hillview.tv/videoAPI/streamurl"
 	"github.com/hillview.tv/videoAPI/telemetry"
 )
@@ -24,7 +25,9 @@ const (
 	requestInterval = 400 * time.Millisecond
 )
 
-// StartVideoDurationSync periodically reconciles videos.duration with Cloudflare.
+// StartVideoDurationSync periodically reconciles videos.duration with Cloudflare
+// Stream and Mux (Mux rows are normally filled by the video.asset.ready webhook;
+// this catches videos saved after it fired, and missed deliveries).
 // It targets rows where duration IS NULL or 0 and the url is a Cloudflare Stream
 // url — which covers freshly created videos, videos whose url was edited (the
 // edit path nulls duration), and videos that were still processing on the last
@@ -67,7 +70,7 @@ func reconcileVideoDurations() {
 
 	// Archived videos (status 4) are never shown again, and most of them have
 	// had their Stream copy deleted: checking them only produces 404s.
-	q := "SELECT id, url, status FROM videos WHERE (duration IS NULL OR duration = 0) AND " + streamurl.SQL + " AND status <> 4"
+	q := "SELECT id, url, status FROM videos WHERE (duration IS NULL OR duration = 0) AND (" + streamurl.SQL + " OR " + streamurl.MuxSQL + ") AND status <> 4"
 	args := []any{}
 	if len(skip) > 0 {
 		q += " AND id NOT IN (?" + strings.Repeat(",?", len(skip)-1) + ")"
@@ -85,6 +88,7 @@ func reconcileVideoDurations() {
 
 	type target struct {
 		id     int
+		url    string
 		uid    string
 		status int
 	}
@@ -97,8 +101,8 @@ func reconcileVideoDurations() {
 			telemetry.Error(context.Background(), "duration_sync.scan.failed", err, nil)
 			continue
 		}
-		if uid := actions.CloudflareID(url); uid != "" {
-			targets = append(targets, target{id: id, uid: uid, status: status})
+		if uid := actions.CloudflareID(url); uid != "" || streamurl.IsMux(url) {
+			targets = append(targets, target{id: id, url: url, uid: uid, status: status})
 		}
 	}
 	rows.Close()
@@ -112,6 +116,28 @@ func reconcileVideoDurations() {
 		// Throttle every request (not just successful ones) to stay under the limit.
 		if i > 0 {
 			time.Sleep(requestInterval)
+		}
+
+		if streamurl.IsMux(t.url) {
+			// SyncMuxDuration stores the duration itself.
+			duration, err := actions.SyncMuxDuration(t.id, t.url)
+			if errors.Is(err, mux.ErrNotFound) {
+				missingMu.Lock()
+				missingOnCloudflare[t.id] = true
+				missingMu.Unlock()
+				log.Printf("duration sync: video %d not found on Mux; skipping until restart", t.id)
+				telemetry.Warn(context.Background(), "duration_sync.mux.missing", err, map[string]any{"video_id": t.id, "video_status": t.status})
+				continue
+			}
+			if err != nil {
+				log.Printf("duration sync: video %d mux error: %v", t.id, err)
+				telemetry.Warn(context.Background(), "duration_sync.mux.failed", err, map[string]any{"video_id": t.id})
+				continue
+			}
+			if duration != nil {
+				updated++
+			}
+			continue
 		}
 
 		duration, err := actions.GetCloudflareDuration(t.uid)

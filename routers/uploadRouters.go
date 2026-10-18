@@ -1,8 +1,6 @@
 package routers
 
 import (
-	"bytes"
-	"encoding/json"
 	"log"
 	"math/rand"
 	"net/http"
@@ -16,9 +14,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/awsBridge"
-	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/middleware"
+	"github.com/hillview.tv/videoAPI/mux"
 	"github.com/hillview.tv/videoAPI/responder"
+	"github.com/hillview.tv/videoAPI/streamurl"
 )
 
 const letterBytes = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -51,52 +50,6 @@ type VideoUploadResponse struct {
 	Thumbnail string `json:"thumbnail"`
 	S3Url     string `json:"s3_url"`
 	Duration  int    `json:"duration"`
-}
-
-type CloudflareResponse struct {
-	Result struct {
-		UID                   string  `json:"uid"`
-		Thumbnail             string  `json:"thumbnail"`
-		ThumbnailTimestampPct float64 `json:"thumbnailTimestampPct"`
-		ReadyToStream         bool    `json:"readyToStream"`
-		Status                struct {
-			State           string `json:"state"`
-			ErrorReasonCode string `json:"errorReasonCode"`
-			ErrorReasonText string `json:"errorReasonText"`
-		} `json:"status"`
-		Meta struct {
-			DownloadedFrom string `json:"downloaded-from"`
-		} `json:"meta"`
-		Created            time.Time     `json:"created"`
-		Modified           time.Time     `json:"modified"`
-		Size               int           `json:"size"`
-		Preview            string        `json:"preview"`
-		AllowedOrigins     []interface{} `json:"allowedOrigins"`
-		RequireSignedURLs  bool          `json:"requireSignedURLs"`
-		Uploaded           time.Time     `json:"uploaded"`
-		UploadExpiry       interface{}   `json:"uploadExpiry"`
-		MaxSizeBytes       interface{}   `json:"maxSizeBytes"`
-		MaxDurationSeconds interface{}   `json:"maxDurationSeconds"`
-		Duration           int           `json:"duration"`
-		Input              struct {
-			Width  int `json:"width"`
-			Height int `json:"height"`
-		} `json:"input"`
-		Playback struct {
-			Hls  string `json:"hls"`
-			Dash string `json:"dash"`
-		} `json:"playback"`
-		Watermark interface{} `json:"watermark"`
-	} `json:"result"`
-	Success  bool          `json:"success"`
-	Errors   []interface{} `json:"errors"`
-	Messages []interface{} `json:"messages"`
-}
-
-type CloudflareRequest struct {
-	URL                   string  `json:"url"`
-	Name                  string  `json:"name"`
-	ThumbnailTimestampPct float64 `json:"thumbnailTimestampPct"`
 }
 
 func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
@@ -159,63 +112,25 @@ func HandleVideoUpload(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Successfully uploaded a video to S3:", *response.Location)
 
-	// Create the post body for cloudflare
-	postBody, err := json.Marshal(CloudflareRequest{
-		URL:                   "https://content.hillview.tv/videos/uploads/" + generated,
-		Name:                  strings.TrimSuffix(generated, ".mp4"),
-		ThumbnailTimestampPct: 0.5,
-	})
-	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to marshal the post body", err)
-		resetMultipart(w)
-		return
-	}
-	responseBody := bytes.NewBuffer(postBody)
+	s3URL := "https://content.hillview.tv/videos/uploads/" + generated
 
-	// Post the video to cloudflare
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", "https://api.cloudflare.com/client/v4/accounts/"+env.CloudflareUID+"/stream/copy", responseBody)
+	// Ingest the S3 object into Mux. The playback id exists immediately;
+	// duration arrives with video.asset.ready (and the duration sync).
+	asset, err := actions.Mux.CreateAsset(mux.NewAssetSettings(s3URL, "user:"+strconv.Itoa(sub), true))
 	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to create post to cloudflare", err)
 		resetMultipart(w)
+		sendMuxError(w, "failed to create Mux asset", err)
 		return
 	}
-	req.Header.Set("X-Auth-Email", env.CloudflareEmail)
-	req.Header.Set("X-Auth-Key", env.CloudflareKey)
-	res, err := client.Do(req)
-	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to execute post to cloudflare", err)
-		resetMultipart(w)
-		return
-	}
-
-	defer res.Body.Close()
-
-	// parse the response from cloudflare
-	body := CloudflareResponse{}
-	err = json.NewDecoder(res.Body).Decode(&body)
-	if err != nil {
-		responder.SendError(w, http.StatusBadRequest, "failed to decode body from cloudflare", err)
-		resetMultipart(w)
-		return
-	}
-
-	if !body.Success {
-		responder.SendError(w, http.StatusBadRequest, "something went wrong in the cloudflare response: "+body.Errors[0].(string))
-		resetMultipart(w)
-		return
-	}
+	pid := asset.PublicPlaybackID()
 
 	resetMultipart(w)
 
-	// return the url of the uploaded file
 	responder.New(w, VideoUploadResponse{
-		URL:       body.Result.Playback.Hls,
-		Thumbnail: body.Result.Thumbnail,
-		S3Url:     "https://content.hillview.tv/videos/uploads/" + generated,
-		// Cloudflare reports duration once processing completes; may be 0 here
-		// for a just-copied video. The backfill tool reconciles older/zero rows.
-		Duration: body.Result.Duration,
+		URL:       streamurl.MuxURL(pid),
+		Thumbnail: mux.ThumbnailURL(pid, nil),
+		S3Url:     s3URL,
+		Duration:  0,
 	})
 }
 

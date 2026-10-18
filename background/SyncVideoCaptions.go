@@ -8,6 +8,7 @@ import (
 
 	"github.com/hillview.tv/videoAPI/actions"
 	"github.com/hillview.tv/videoAPI/db"
+	"github.com/hillview.tv/videoAPI/streamurl"
 	"github.com/hillview.tv/videoAPI/telemetry"
 )
 
@@ -31,6 +32,10 @@ const (
 //	  caption row → POST generate, insert a row as "inprogress".
 //	Phase 2 (collect): rows still "inprogress" → poll Cloudflare; when "ready",
 //	  download the VTT, store it + a plain-text transcript; on "error", mark it.
+//
+// Mux videos go through actions.SyncMuxCaption in both phases: it requests
+// generation when the asset has no English track and stores the VTT once the
+// track is ready (the track.ready webhook usually gets there first).
 //
 // Cloudflare owns transcription (Workers AI); this job orchestrates and persists
 // the result so the transcript is available for SEO and the player gets captions.
@@ -64,8 +69,12 @@ func triggerCaptionGeneration() {
 		   LEFT JOIN video_captions vc
 		     ON vc.video_id = v.id AND vc.language = ?
 		  WHERE vc.id IS NULL
-		    AND (v.url LIKE '%cloudflare%' OR v.url LIKE '%videodelivery.net%')
-		    AND v.duration IS NOT NULL AND v.duration > 0 AND v.duration <= ?
+		    AND v.status <> 4
+		    AND (
+		      ((v.url LIKE '%cloudflare%' OR v.url LIKE '%videodelivery.net%')
+		        AND v.duration IS NOT NULL AND v.duration > 0 AND v.duration <= ?)
+		      OR v.url LIKE 'https://stream.mux.com/%'
+		    )
 		  LIMIT ?`,
 		captionLanguage, maxCaptionDurationSec, captionsPerRun,
 	)
@@ -80,6 +89,7 @@ func triggerCaptionGeneration() {
 		uid string
 	}
 	var targets []target
+	var muxTargets []muxTarget
 	for rows.Next() {
 		var id int
 		var url string
@@ -88,9 +98,13 @@ func triggerCaptionGeneration() {
 		}
 		if uid := actions.CloudflareID(url); uid != "" {
 			targets = append(targets, target{id: id, uid: uid})
+		} else if streamurl.IsMux(url) {
+			muxTargets = append(muxTargets, muxTarget{id: id, url: url})
 		}
 	}
 	rows.Close()
+
+	syncMuxCaptions(muxTargets, "trigger")
 
 	for i, t := range targets {
 		if i > 0 {
@@ -143,6 +157,7 @@ func collectReadyCaptions() {
 		uid string
 	}
 	var targets []target
+	var muxTargets []muxTarget
 	for rows.Next() {
 		var id int
 		var url string
@@ -151,9 +166,13 @@ func collectReadyCaptions() {
 		}
 		if uid := actions.CloudflareID(url); uid != "" {
 			targets = append(targets, target{id: id, uid: uid})
+		} else if streamurl.IsMux(url) {
+			muxTargets = append(muxTargets, muxTarget{id: id, url: url})
 		}
 	}
 	rows.Close()
+
+	syncMuxCaptions(muxTargets, "collect")
 
 	collected := 0
 	for i, t := range targets {
@@ -196,5 +215,33 @@ func collectReadyCaptions() {
 	}
 	if collected > 0 {
 		log.Printf("caption sync: stored transcripts for %d videos", collected)
+	}
+}
+
+type muxTarget struct {
+	id  int
+	url string
+}
+
+// syncMuxCaptions advances each Mux video's caption one step (see
+// actions.SyncMuxCaption). Failures are retried next tick.
+func syncMuxCaptions(targets []muxTarget, stage string) {
+	stored := 0
+	for i, t := range targets {
+		if i > 0 {
+			time.Sleep(captionRequestInterval)
+		}
+		status, err := actions.SyncMuxCaption(t.id, t.url)
+		if err != nil {
+			log.Printf("caption sync: mux %s failed for video %d: %v", stage, t.id, err)
+			telemetry.Warn(context.Background(), "caption_sync.mux.failed", err, map[string]any{"video_id": t.id, "stage": stage})
+			continue
+		}
+		if status == actions.CaptionReady {
+			stored++
+		}
+	}
+	if stored > 0 {
+		log.Printf("caption sync: stored Mux transcripts for %d videos", stored)
 	}
 }

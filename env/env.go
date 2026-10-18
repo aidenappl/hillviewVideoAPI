@@ -26,6 +26,10 @@ var (
 	MuxTokenSecret   = getEnv("MUX_TOKEN_SECRET", "")
 	MuxWebhookSecret = getEnv("MUX_WEBHOOK_SECRET", "")
 
+	// PublicAPIURL is this API's public base url. Mux fetches edited captions
+	// from PublicAPIURL + /captions/{uuid}/en.vtt.
+	PublicAPIURL = getEnv("PUBLIC_API_URL", "https://api.hillview.tv/video/v1.1")
+
 	// Monitor (zone hillview). All optional: unset, the service runs without
 	// telemetry rather than failing to boot.
 	MonitorIngestURL = getEnv("MONITOR_INGEST_URL", "")
