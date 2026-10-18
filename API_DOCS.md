@@ -576,7 +576,7 @@ curl -X POST "https://api.example.com/video/v1.1/newsletter/unsubscribe" \
 
 #### `POST /video/v1.1/upload/video`
 
-Upload a video file to S3 and process it through Cloudflare Stream.
+Upload a video file to S3 and ingest it into Mux (basic quality, 1080p cap, MP4 rendition, English captions).
 
 **Authentication:** Required (Access Token)
 
@@ -600,16 +600,17 @@ curl -X POST "https://api.example.com/video/v1.1/upload/video" \
   "success": true,
   "message": "request was successful",
   "data": {
-    "url": "https://videodelivery.net/cf_uid/manifest/video.m3u8",
-    "thumbnail": "https://videodelivery.net/cf_uid/thumbnails/thumbnail.jpg",
-    "s3_url": "https://content.hillview.tv/videos/uploads/UID1-1234567890-ABCDEFGHIJ.mp4"
+    "url": "https://stream.mux.com/{playback_id}.m3u8",
+    "thumbnail": "https://image.mux.com/{playback_id}/thumbnail.jpg",
+    "s3_url": "https://content.hillview.tv/videos/uploads/UID1-1234567890-ABCDEFGHIJ.mp4",
+    "duration": 0
   }
 }
 ```
 
 **Notes:**
 
-- Video is first uploaded to S3, then copied to Cloudflare Stream
+- Video is first uploaded to S3, then ingested by Mux from the S3 url. `duration` is 0 until Mux finishes; the `video.asset.ready` webhook and the duration sync fill it in
 - The generated filename includes the user ID, timestamp, and random string
 - Temporary files are automatically cleaned up after upload
 
@@ -647,6 +648,55 @@ curl -X POST "https://api.example.com/video/v1.1/upload/thumbnail" \
   }
 }
 ```
+
+---
+
+## Mux Integration
+
+New uploads go to Mux. Cloudflare Stream routes below stay until the library has moved.
+
+### Create Mux Direct Upload 🔒
+
+#### `POST /video/v1.1/upload/mux/upload`
+
+Returns a resumable PUT url the browser uploads the file to (use `@mux/upchunk`; chunks are multiples of 256 KB). The request's `Origin` is the CORS origin Mux allows (default `https://team.hillview.tv`).
+
+```json
+{ "success": true, "data": { "id": "upload_id", "url": "https://storage.googleapis.com/..." } }
+```
+
+### Get Mux Upload Status 🔒
+
+#### `GET /video/v1.1/upload/mux/{upload_id}`
+
+`status` is `waiting` (file not finished), `preparing`, `ready` or `errored`. Playback fields appear once Mux has created the asset; `duration` once it is ready.
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ready",
+    "asset_id": "asset_id",
+    "playback_id": "playback_id",
+    "url": "https://stream.mux.com/{playback_id}.m3u8",
+    "thumbnail": "https://image.mux.com/{playback_id}/thumbnail.jpg?time=61",
+    "download_url": "https://stream.mux.com/{playback_id}/highest.mp4",
+    "duration": 123
+  }
+}
+```
+
+### Mux Webhook
+
+#### `POST /video/v1.1/webhooks/mux`
+
+Public, authenticated by the `Mux-Signature` header (HMAC-SHA256 with `MUX_WEBHOOK_SECRET`, 5-minute tolerance; 401 otherwise). Handles `video.asset.ready` (stores duration), `video.asset.errored` (Monitor warning), and `video.asset.track.ready` / `track.errored` for text tracks (stores the generated caption unless the video already has a ready or errored one). Other events answer 200 `ignored`. Failures answer 5xx so Mux retries.
+
+### Caption File
+
+#### `GET /video/v1.1/captions/{uuid}/en.vtt`
+
+Public. A video's stored, ready caption as `text/vtt` (any video status); 404 when there is none. Mux fetches edited captions from here.
 
 ---
 

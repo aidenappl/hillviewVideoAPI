@@ -130,6 +130,9 @@ func main() {
 	upload.Handle("/cf/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareUpload))).Methods(http.MethodPost)
 	upload.Handle("/cf/{id}/generateDownload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleCloudflareDownload))).Methods(http.MethodPost)
 
+	upload.Handle("/mux/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleMuxCreateUpload))).Methods(http.MethodPost)
+	upload.Handle("/mux/{id}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleMuxUploadStatus))).Methods(http.MethodGet)
+
 	// Create Queries
 
 	create := r.PathPrefix("/create").Subrouter()
@@ -138,6 +141,7 @@ func main() {
 
 	// Caption admin (edit / regenerate) — keyed by video uuid
 	captions := r.PathPrefix("/captions").Subrouter()
+	captions.HandleFunc("/{uuid}/en.vtt", routers.HandleCaptionFile).Methods(http.MethodGet) // public: Mux fetches edited captions here
 	captions.Handle("/{uuid}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleGetCaption))).Methods(http.MethodGet)
 	captions.Handle("/{uuid}", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandlePutCaption))).Methods(http.MethodPut)
 	captions.Handle("/{uuid}/regenerate", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleRegenerateCaption))).Methods(http.MethodPost)
@@ -150,6 +154,9 @@ func main() {
 	r.HandleFunc("/newsletter", routers.HandlePostNewsletter).Methods(http.MethodPost)
 	r.HandleFunc("/newsletter/unsubscribe", routers.HandleUnsubscribeNewsletter).Methods(http.MethodPost)
 	r.HandleFunc("/spotlight", routers.HandleSpotlightList).Methods(http.MethodGet)
+
+	// Mux webhooks — public, authenticated by Mux-Signature
+	r.HandleFunc("/webhooks/mux", routers.HandleMuxWebhook).Methods(http.MethodPost)
 
 	// Launch API Listener
 	fmt.Printf("✅ Hillview Video Provider API running on port %s\n", env.Port)

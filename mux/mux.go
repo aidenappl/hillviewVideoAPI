@@ -201,6 +201,7 @@ type PlaybackID struct {
 // Track is a video, audio or text track on an asset.
 type Track struct {
 	ID           string  `json:"id"`
+	AssetID      string  `json:"asset_id,omitempty"`
 	Type         string  `json:"type"`
 	Status       string  `json:"status"`
 	TextType     string  `json:"text_type,omitempty"`
@@ -303,6 +304,24 @@ func (c *Client) GetAsset(id string) (*Asset, error) {
 		return nil, err
 	}
 	return &a, nil
+}
+
+// AssetIDForPlayback returns the asset a playback id plays. Live stream
+// playback ids are rejected.
+func (c *Client) AssetIDForPlayback(playbackID string) (string, error) {
+	var p struct {
+		Object struct {
+			Type string `json:"type"`
+			ID   string `json:"id"`
+		} `json:"object"`
+	}
+	if err := c.do(http.MethodGet, "/playback-ids/"+playbackID, nil, &p); err != nil {
+		return "", err
+	}
+	if p.Object.Type != "asset" || p.Object.ID == "" {
+		return "", fmt.Errorf("playback id %s plays a %q, not an asset", playbackID, p.Object.Type)
+	}
+	return p.Object.ID, nil
 }
 
 // DeleteAsset deletes an asset. A missing asset counts as deleted.

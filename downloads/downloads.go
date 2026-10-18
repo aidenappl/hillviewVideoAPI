@@ -15,6 +15,8 @@ const (
 	CONTENT_BUCKET        = "content.hillview.tv"
 	CONTENT_BUCKET_REGION = "us-west-1"
 	CONTENT_HOST          = "content.hillview.tv"
+	// MUX_STREAM_HOST serves Mux static renditions: /{playback_id}/highest.mp4.
+	MUX_STREAM_HOST = "stream.mux.com"
 )
 
 // Presigner signs a GET for an object in CONTENT_BUCKET with the given
@@ -44,6 +46,12 @@ func Target(raw string, title string, presign Presigner) (string, error) {
 		// Stream sets Content-Disposition itself from ?filename=, and appends .mp4.
 		qs := u.Query()
 		qs.Set("filename", CloudflareFilename(title))
+		u.RawQuery = qs.Encode()
+		return u.String(), nil
+	case u.Hostname() == MUX_STREAM_HOST:
+		// Mux sets Content-Disposition from ?download= and appends the extension.
+		qs := u.Query()
+		qs.Set("download", CloudflareFilename(title))
 		u.RawQuery = qs.Encode()
 		return u.String(), nil
 	default:
@@ -97,6 +105,7 @@ func baseName(title string) string {
 }
 
 // CloudflareFilename fits Stream's rule: [A-Za-z0-9_-], at most 120 chars.
+// Mux's ?download= gets the same safe name.
 func CloudflareFilename(title string) string {
 	name := cloudflareFilenameDisallowed.ReplaceAllString(strings.TrimSpace(title), "-")
 	name = strings.Trim(name, "-")
