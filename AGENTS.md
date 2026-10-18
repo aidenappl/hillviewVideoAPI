@@ -37,7 +37,6 @@ hillviewVideoAPI/
   routers/               # handlers
   structs/               # entities
   tools/                 # helpers
-  auditCloudflareVideos/, backfillDuration/ # one-off maintenance programs
   tools/migrateToMux/    # one-off Stream → Mux library migration (dry run by default; see §6). Reads DATABASE_DSN, CLOUDFLARE_UID/TOKEN, MUX_TOKEN_ID/SECRET, AWS keys for -archive
   telemetry/             # Monitor client: Init, request middleware, failure recording, Go(), shutdown flush.
                          #   IDENTICAL in all five Hillview Go APIs — change it in all of them
