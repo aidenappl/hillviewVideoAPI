@@ -26,7 +26,7 @@ hillviewVideoAPI/
   db/                    # connection + `PingDB`
   streamurl/             # recognises both Stream url forms (customer-….cloudflarestream.com and 2022-era videodelivery.net) and Mux urls (stream.mux.com/{playback_id}.m3u8): ProviderOf, ID, MuxPlaybackID, SQL/MuxSQL filters; no env/DB deps. Use it, never a bare LIKE '%cloudflare%'
   mux/                   # Mux Video API client (assets, direct uploads, text tracks, generated captions, static MP4s), webhook signature verification, public url builders; no env deps, unit-tested against httptest
-  migrations/            # hand-written SQL for hillviewtv, applied with `go run ./tools/migrate [-apply] migrations/<file>.sql` (reads DATABASE_DSN, prints host/db only, dry run by default). db.hillview.tv:3306 is not reachable from outside the studio LAN
+  migrations/            # hand-written SQL for hillviewtv, applied with `go run ./tools/migrate [-apply] migrations/<file>.sql` (reads DATABASE_DSN, prints host/db only, dry run by default). the hillviewtv database host is `hillviewdb.onprem.appleby.cloud`; `db.hillview.tv` (in older `.env` files) does not accept connections. `2026-10-18-mux.sql` was applied 2026-10-18
   downloads/             # download redirect targets: presigned S3 (content.hillview.tv) or Stream ?filename=. No env/DB deps; unit-tested
   jwt/                   # Hillview JWT
   mailer/                # SendGrid
