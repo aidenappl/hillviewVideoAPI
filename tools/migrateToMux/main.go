@@ -18,7 +18,7 @@
 //
 // Archived groups (every row status 4), with -archive: the MP4 is kept in
 // S3 — an existing content.hillview.tv download_url, or Stream's MP4 copied to
-// content.hillview.tv/archive/{uid}.mp4 — and the rows become
+// content.hillview.tv/videos/archive/{uid}.mp4 — and the rows become
 // legacy_url = old url, url = the S3 MP4. They are not uploaded to Mux.
 //
 // Nothing is changed without -apply. Re-running resumes: in-flight assets are
@@ -30,6 +30,7 @@
 //	go run ./tools/migrateToMux -apply                  # everything
 //	go run ./tools/migrateToMux -archive                # plan the archive
 //	go run ./tools/migrateToMux -archive -apply         # copy archived MP4s to S3
+//	go run ./tools/migrateToMux -orphans -apply         # copy unreferenced Stream videos to S3
 //
 // Env: DATABASE_DSN, CLOUDFLARE_UID, CLOUDFLARE_TOKEN, MUX_TOKEN_ID,
 // MUX_TOKEN_SECRET, PUBLIC_API_URL (default https://api.hillview.tv/video/v1.1),
@@ -64,8 +65,13 @@ const (
 	CONTENT_HOST          = "content.hillview.tv"
 	CONTENT_BUCKET        = "content.hillview.tv"
 	CONTENT_BUCKET_REGION = "us-west-1"
-	ARCHIVE_PREFIX        = "archive/"
-	STATUS_ARCHIVED       = 4
+	// ARCHIVE_PREFIX sits under /videos/, the only content.hillview.tv path
+	// still routed to AWS S3 (the rest is OpenBucket, proxy host 56).
+	ARCHIVE_PREFIX = "videos/archive/"
+	// ORPHAN_PREFIX holds Stream videos no row references, kept before the
+	// Stream account is emptied.
+	ORPHAN_PREFIX   = "videos/archive/stream-orphans/"
+	STATUS_ARCHIVED = 4
 )
 
 type row struct {
@@ -136,6 +142,7 @@ type tool struct {
 func main() {
 	apply := flag.Bool("apply", false, "make changes (default: plan only)")
 	archive := flag.Bool("archive", false, "handle archived videos (S3 copies) instead of live ones")
+	orphans := flag.Bool("orphans", false, "copy Stream videos no row references (url or legacy_url) to S3")
 	limit := flag.Int("limit", 0, "create at most this many new Mux assets this run (0 = all)")
 	wait := flag.Duration("wait", 2*time.Hour, "how long to wait for in-flight assets before exiting")
 	only := flag.String("uid", "", "only this Stream uid")
@@ -178,6 +185,10 @@ func main() {
 
 	if *archive {
 		t.runArchive(groups)
+		return
+	}
+	if *orphans {
+		t.runOrphans()
 		return
 	}
 
@@ -465,11 +476,7 @@ func (t *tool) runArchive(groups []group) {
 	var have, copyNow, pendingDL, missing []string
 	var uploader *s3manager.Uploader
 	if t.apply {
-		sess, err := session.NewSession(aws.NewConfig().WithRegion(CONTENT_BUCKET_REGION).WithS3ForcePathStyle(true))
-		if err != nil {
-			log.Fatal(err)
-		}
-		uploader = s3manager.NewUploader(sess, func(u *s3manager.Uploader) { u.PartSize = 64 << 20 })
+		uploader = newUploader()
 	}
 
 	for _, g := range groups {
@@ -556,6 +563,115 @@ func (t *tool) pointArchived(g group, archiveURL string) {
 	log.Printf("uid %s: videos %s → %s", g.UID, idList(g), archiveURL)
 }
 
+func newUploader() *s3manager.Uploader {
+	sess, err := session.NewSession(aws.NewConfig().WithRegion(CONTENT_BUCKET_REGION).WithS3ForcePathStyle(true))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return s3manager.NewUploader(sess, func(u *s3manager.Uploader) { u.PartSize = 64 << 20 })
+}
+
+// ─── Stream orphans → S3 ────────────────────────────────────────────────────
+
+// runOrphans copies every Stream video that no row references — by url or
+// legacy_url — to ORPHAN_PREFIX{uid}.mp4, requesting Stream MP4s first.
+// Re-run until nothing is pending. No row is changed.
+func (t *tool) runOrphans() {
+	referenced := map[string]bool{}
+	rows, err := t.db.Query("SELECT IFNULL(url, ''), IFNULL(legacy_url, '') FROM videos")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for rows.Next() {
+		var u, l string
+		if err := rows.Scan(&u, &l); err != nil {
+			log.Fatal(err)
+		}
+		referenced[streamurl.ID(u)] = true
+		referenced[streamurl.ID(l)] = true
+	}
+	rows.Close()
+
+	uids, err := t.streamUIDs()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var uploader *s3manager.Uploader
+	if t.apply {
+		uploader = newUploader()
+	}
+	var done, copied, pending []string
+	for _, uid := range uids {
+		if referenced[uid] {
+			continue
+		}
+		key := ORPHAN_PREFIX + uid + ".mp4"
+		dest := "https://" + CONTENT_HOST + "/" + key
+		if t.reachable(dest) {
+			done = append(done, uid)
+			continue
+		}
+		mp4, ready, err := t.streamDownload(uid)
+		if err != nil {
+			log.Printf("uid %s: %v", uid, err)
+			continue
+		}
+		if !ready {
+			pending = append(pending, uid)
+			if t.apply {
+				if err := t.requestStreamDownload(uid); err != nil {
+					log.Printf("uid %s: request download: %v", uid, err)
+				}
+			}
+			continue
+		}
+		copied = append(copied, uid)
+		if !t.apply {
+			continue
+		}
+		if err := t.copyToS3(uploader, mp4, key); err != nil {
+			log.Printf("uid %s: copy to S3: %v", uid, err)
+			continue
+		}
+		log.Printf("uid %s → %s", uid, dest)
+	}
+	fmt.Printf("\nStream orphans: %d already in S3, %d copied now, %d Stream MP4s pending (re-run)\n", len(done), len(copied), len(pending))
+}
+
+// streamUIDs lists every video uid in the Stream account.
+func (t *tool) streamUIDs() ([]string, error) {
+	var out struct {
+		Result []struct {
+			UID     string `json:"uid"`
+			Created string `json:"created"`
+		} `json:"result"`
+	}
+	var uids []string
+	start := ""
+	for {
+		path := "/stream?asc=true&limit=1000"
+		if start != "" {
+			path += "&start=" + url.QueryEscape(start)
+		}
+		out.Result = nil
+		if err := t.cf(http.MethodGet, path, &out); err != nil {
+			return nil, err
+		}
+		for _, v := range out.Result {
+			uids = append(uids, v.UID)
+		}
+		if len(out.Result) < 1000 {
+			return uids, nil
+		}
+		last, err := time.Parse(time.RFC3339Nano, out.Result[len(out.Result)-1].Created)
+		if err != nil {
+			return nil, err
+		}
+		start = last.Add(time.Microsecond).Format(time.RFC3339Nano)
+	}
+}
+
 func (t *tool) copyToS3(uploader *s3manager.Uploader, src, key string) error {
 	client := &http.Client{} // no timeout: files are large
 	resp, err := client.Get(src)
@@ -571,6 +687,7 @@ func (t *tool) copyToS3(uploader *s3manager.Uploader, src, key string) error {
 		Key:         aws.String(key),
 		Body:        resp.Body,
 		ContentType: aws.String("video/mp4"),
+		ACL:         aws.String("public-read"), // like every video upload
 	})
 	return err
 }
