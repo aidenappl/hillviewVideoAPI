@@ -15,18 +15,15 @@ var (
 	Port           = getEnv("PORT", "8000")
 	DatabaseDSN    = getEnvOrPanic("DATABASE_DSN")
 	JWTSigningKey  = getEnvOrPanic("JWT_SIGNING_KEY")
-	AWSRegion      = getEnvOrPanic("AWS_REGION")
-	AWSKey         = getEnvOrPanic("AWS_ACCESS_KEY_ID")
-	AWSSecret      = getEnvOrPanic("AWS_SECRET_ACCESS_KEY")
 	SendgridAPIKey = getEnvOrPanic("SENDGRID_API_KEY")
 	HealthCheckURL = getEnvOrPanic("HEALTH_CHECK_URL")
 
-	// Content storage for thumbnail uploads. With CONTENT_S3_ENDPOINT set they
-	// go to that S3-compatible store (OpenBucket); unset, to AWS S3 with the
-	// AWS_* credentials. Videos stay on AWS S3 until Mux replaces them.
-	ContentS3Endpoint        = getEnv("CONTENT_S3_ENDPOINT", "")
-	ContentS3Region          = getEnv("CONTENT_S3_REGION", "us-west-1")
-	ContentS3Bucket          = getEnv("CONTENT_S3_BUCKET", "content.hillview.tv")
+	// Content store: the Hillview OpenBucket instance (bucket hillview-content),
+	// served publicly at content.hillview.tv. Thumbnails are uploaded here and
+	// archived videos are downloaded from here via presigned URLs.
+	ContentS3Endpoint        = getEnv("CONTENT_S3_ENDPOINT", "https://cdn.hillview.tv")
+	ContentS3Region          = getEnv("CONTENT_S3_REGION", "openbucket")
+	ContentS3Bucket          = getEnv("CONTENT_S3_BUCKET", "hillview-content")
 	ContentS3AccessKeyID     = getSecret("CONTENT_S3_ACCESS_KEY_ID")
 	ContentS3SecretAccessKey = getSecret("CONTENT_S3_SECRET_ACCESS_KEY")
 	ContentPublicBaseURL     = strings.TrimRight(getEnv("CONTENT_PUBLIC_BASE_URL", "https://content.hillview.tv"), "/")

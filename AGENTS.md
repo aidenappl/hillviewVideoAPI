@@ -13,7 +13,7 @@ Served at `https://api.hillview.tv/video/v1.1` (NPM path routing on the shared `
 - `github.com/gorilla/handlers` for CORS — a legacy deviation from the estate standard (`rs/cors`); leave it unless doing a deliberate migration
 - `github.com/aidenappl/go-monitor` **v0.0.9** — telemetry to Monitor zone `hillview` (§6)
 - `github.com/aidenappl/go-keyring` v1.1.0 — optional secrets from Keyring (§4)
-- Also: AWS SDK v1 (S3: videos on AWS until Mux, thumbnails on OpenBucket via `CONTENT_S3_*`), Mux Video API (`mux/`, plain `net/http`, no SDK), SendGrid, golang-jwt v5
+- Also: AWS SDK v1 as the S3 client for the content store (OpenBucket, `CONTENT_S3_*`), Mux Video API (`mux/`, plain `net/http`, no SDK), SendGrid, golang-jwt v5
 
 ## 3. Project structure
 
@@ -22,13 +22,13 @@ hillviewVideoAPI/
   main.go                # router, middleware order, background jobs, http.Server + graceful shutdown
   env/env.go             # every environment variable (getEnv / getEnvOrPanic)
   actions/               # mux.go = Mux reconcile steps over the DB (ResolveMuxAsset, SyncMuxDuration, SyncMuxCaption, Replace/RegenerateMuxCaption)
-  awsBridge/             # S3 sessions: Connect (AWS, videos) and ContentSession (OpenBucket, thumbnails)
+  awsBridge/             # ContentSession: S3 session for the content store (OpenBucket) — thumbnails and presigned downloads
   background/            # heartbeat, `StartVideoDurationSync`, `StartVideoCaptionSync`
   db/                    # connection + `PingDB`
   streamurl/             # recognises Mux urls (stream.mux.com/{playback_id}.m3u8): IsMux, MuxPlaybackID, MuxURL, MuxSQL; no env/DB deps. Use it, never a bare LIKE
   mux/                   # Mux Video API client (assets, direct uploads, text tracks, generated captions, static MP4s), webhook signature verification, public url builders; no env deps, unit-tested against httptest
   migrations/            # hand-written SQL for hillviewtv, applied with `go run ./tools/migrate [-apply] migrations/<file>.sql` (reads DATABASE_DSN, prints host/db only, dry run by default). the hillviewtv database host is `hillviewdb.onprem.appleby.cloud`; `db.hillview.tv` (in older `.env` files) does not accept connections. `2026-10-18-mux.sql` was applied 2026-10-18
-  downloads/             # download redirect targets: presigned S3 (content.hillview.tv) or Mux ?download=. No env/DB deps; unit-tested
+  downloads/             # download redirect targets: presigned content-store URL (content.hillview.tv objects) or Mux ?download=. No env/DB deps; unit-tested
   jwt/                   # Hillview JWT
   mailer/                # SendGrid
   middleware/            # request id, logging, headers, auth
@@ -59,10 +59,9 @@ dev check    # gofmt -w -s . && go vet ./... && go test ./...
 |---|---|---|
 | `DATABASE_DSN` | yes | MariaDB DSN for `hillviewtv` |
 | `JWT_SIGNING_KEY` | yes | Shared Hillview JWT key |
-| `AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY` | yes | AWS S3 for videos (`content.hillview.tv`, `us-west-1`) until Mux replaces them; thumbnails too while `CONTENT_S3_ENDPOINT` is unset |
-| `CONTENT_S3_ENDPOINT` | no | S3-compatible endpoint (OpenBucket) for thumbnail uploads. Unset = AWS S3 |
-| `CONTENT_S3_REGION / CONTENT_S3_BUCKET` | no | Default `us-west-1` / `content.hillview.tv` |
-| `CONTENT_S3_ACCESS_KEY_ID / CONTENT_S3_SECRET_ACCESS_KEY` | with endpoint | Credentials for `CONTENT_S3_ENDPOINT` — **from Keyring** unless set in the environment |
+| `CONTENT_S3_ENDPOINT` | no | Content store endpoint, default `https://cdn.hillview.tv` (the Hillview OpenBucket instance). There is no AWS fallback |
+| `CONTENT_S3_REGION / CONTENT_S3_BUCKET` | no | Default `openbucket` / `hillview-content` |
+| `CONTENT_S3_ACCESS_KEY_ID / CONTENT_S3_SECRET_ACCESS_KEY` | yes | Content store credentials — **from Keyring** (token 41) unless set in the environment |
 | `CONTENT_PUBLIC_BASE_URL` | no | Base of returned thumbnail URLs (default `https://content.hillview.tv`) |
 | `MUX_TOKEN_ID / MUX_TOKEN_SECRET` | no (during migration) | Mux Video API token pair — **from Keyring** (secrets 136/135) unless set in the environment. Unset = Mux calls fail with `mux.ErrNotConfigured`; the service still boots |
 | `MUX_WEBHOOK_SECRET` | no (during migration) | Signing secret of the Mux webhook endpoint, for `mux.VerifyWebhook` — **from Keyring** (secret 134) unless set in the environment |
@@ -97,15 +96,15 @@ Local runs need a reachable MariaDB. Leave the `MONITOR_*` variables unset local
 
 **Middleware order** on the `/video/v1.1` subrouter: (request id, where present) → `telemetry.Middleware` → `LoggingMiddleware` → `MuxHeaderMiddleware` → `TokenHandlers` (where present) → route. `/healthcheck` is on the root router, outside all of it, and emits nothing.
 
-**Video hosting: Mux (moved from Cloudflare Stream, Oct 2026).** Every public, unlisted and draft video plays from Mux; video responses carry `mux_playback_id`. Mux assets are created with `mux.NewAssetSettings`: `basic` quality (free encoding), `max_resolution_tier` 1080p, public playback, a `highest` static MP4 for downloads, and English generated captions. The migration finished on 2026-10-21: the Cloudflare Stream account is empty and its plan cancelled, so `videos.legacy_url` (the old Stream url of each migrated row) is a historical record only and plays nothing. Archived (status 4) rows were not moved to Mux: those with an S3 copy point at `content.hillview.tv/videos/...`; the rest still hold dead Stream urls. Stream videos no row referenced were kept at `content.hillview.tv/videos/archive/stream-orphans/{uid}.mp4`. Anything stored in that bucket must sit under `/videos/` (the only path NPM proxy host 56 still routes to AWS S3) and be public-read.
+**Video hosting: Mux (moved from Cloudflare Stream, Oct 2026).** Every public, unlisted and draft video plays from Mux; video responses carry `mux_playback_id`. Mux assets are created with `mux.NewAssetSettings`: `basic` quality (free encoding), `max_resolution_tier` 1080p, public playback, a `highest` static MP4 for downloads, and English generated captions. The migration finished on 2026-10-21: the Cloudflare Stream account is empty and its plan cancelled, so `videos.legacy_url` (the old Stream url of each migrated row) is a historical record only and plays nothing. Archived (status 4) rows were not moved to Mux: those with an S3 copy point at `content.hillview.tv/videos/...`; the rest still hold dead Stream urls. Stream videos no row referenced were kept at `content.hillview.tv/videos/archive/stream-orphans/{uid}.mp4`. All of it now lives in the content store (`hillview-content` on the Hillview OpenBucket instance, served at `content.hillview.tv`), copied from the old AWS bucket in Oct 2026; objects must be public-read to load without a signature.
 
-- **Uploads:** team.hillview.tv asks `POST /upload/mux/upload` for a direct-upload url, PUTs the file to Mux with UpChunk, and polls `GET /upload/mux/{upload_id}` until the asset is `ready`. The video row is created afterwards through hillviewCoreAPI with `url = https://stream.mux.com/{playback_id}.m3u8`.
+- **Uploads:** team.hillview.tv asks `POST /upload/mux/upload` for a direct-upload url, PUTs the file to Mux with UpChunk, and polls `GET /upload/mux/{upload_id}` until the asset is `ready`. The video row is created afterwards through hillviewCoreAPI with `url = https://stream.mux.com/{playback_id}.m3u8`. The old `POST /upload/video` (S3 multipart upload, then Mux ingest from S3) was removed in Oct 2026: unused since the Mux direct uploads, and OpenBucket has no multipart.
 - **Asset ids:** `videos.url` is the source of truth. `actions.ResolveMuxAsset` uses `videos.mux_asset_id` while `mux_playback_id` still matches the url, and otherwise looks the asset up (`GET /playback-ids/{id}`) and stores both columns. `legacy_url` keeps a migrated row's old Stream url.
 - **Webhook** `POST /webhooks/mux` (signed with `MUX_WEBHOOK_SECRET`): `video.asset.ready` → duration; text `track.ready`/`track.errored` → caption, only when the video has no caption row or an `inprogress` one, so hand-edited captions are never overwritten. A webhook that arrives before the video row exists finds nothing; the duration and caption syncs pick those videos up on their next tick.
 - **Captions:** edits are saved to `video_captions` first, then Mux's English tracks are deleted and replaced with a track Mux fetches from the public `GET /captions/{uuid}/en.vtt`. Regenerate deletes the tracks and calls `generate-subtitles` on the audio track.
 - **Downloads:** Mux `download_url`s are `stream.mux.com/{playback_id}/highest.mp4`; `/download/{uuid}` adds `?download=<title>`.
 
-**Downloads:** `GET /video/v1.1/download/{uuid|id}` answers **302** to a link the browser saves as `<title>.mp4` — a 15-minute presigned S3 URL with `response-content-disposition` for `content.hillview.tv` objects (signed for `us-west-1`, path-style), or the Mux MP4 (`stream.mux.com/{playback_id}/highest.mp4`) with `?download=<title>`. 403 when `allow_downloads` is off. The bytes never cross the studio WAN; hillview.tv links here instead of proxying files itself. Counting stays on `POST /recordDownload/{uuid}`.
+**Downloads:** `GET /video/v1.1/download/{uuid|id}` answers **302** to a link the browser saves as `<title>.mp4` — a 15-minute presigned URL on the content store (`cdn.hillview.tv/hillview-content/<key>`, path-style; OpenBucket honours `response-content-disposition` on signed GETs) for `content.hillview.tv` objects, or the Mux MP4 (`stream.mux.com/{playback_id}/highest.mp4`) with `?download=<title>`. 403 when `allow_downloads` is off. The bytes never cross the studio WAN; hillview.tv links here instead of proxying files itself. Counting stays on `POST /recordDownload/{uuid}`.
 
 **Auth:** Hillview JWTs minted by hillviewAuthAPI and signed with the shared `JWT_SIGNING_KEY`, read from `Authorization: Bearer` or the `hv_access` cookie. `AccessTokenMiddleware` calls `telemetry.SetUserID` once it resolves the user.
 

@@ -11,6 +11,7 @@ import (
 	"github.com/hillview.tv/videoAPI/awsBridge"
 	"github.com/hillview.tv/videoAPI/db"
 	"github.com/hillview.tv/videoAPI/downloads"
+	"github.com/hillview.tv/videoAPI/env"
 	"github.com/hillview.tv/videoAPI/query"
 	"github.com/hillview.tv/videoAPI/responder"
 	"github.com/hillview.tv/videoAPI/telemetry"
@@ -57,15 +58,13 @@ func HandleDownloadVideo(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusFound)
 }
 
-// presignContent signs a GET for the content bucket. It is signed for the
-// bucket's own region (the API session's region differs) and path-style,
-// because the bucket name has dots, which break TLS on virtual-hosted URLs.
+// presignContent signs a GET for an object in the content store. The URL
+// points at CONTENT_S3_ENDPOINT (cdn.hillview.tv) rather than
+// content.hillview.tv, because the signature covers the host it was made for.
 func presignContent(key string, disposition string) (string, error) {
-	client := s3.New(awsBridge.Connect(), aws.NewConfig().
-		WithRegion(downloads.CONTENT_BUCKET_REGION).
-		WithS3ForcePathStyle(true))
+	client := s3.New(awsBridge.ContentSession())
 	req, _ := client.GetObjectRequest(&s3.GetObjectInput{
-		Bucket:                     aws.String(downloads.CONTENT_BUCKET),
+		Bucket:                     aws.String(env.ContentS3Bucket),
 		Key:                        aws.String(key),
 		ResponseContentDisposition: aws.String(disposition),
 		ResponseContentType:        aws.String("video/mp4"),
