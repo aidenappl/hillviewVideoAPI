@@ -264,6 +264,18 @@ func (a *Asset) TextTrack(lang string) *Track {
 	return nil
 }
 
+// TextTrackPreparing reports whether a text track for the language is still
+// being prepared. Mux refuses to delete such a track (400 "Can't delete a
+// preparing asset track").
+func (a *Asset) TextTrackPreparing(lang string) bool {
+	for _, t := range a.Tracks {
+		if t.Type == "text" && t.LanguageCode == lang && t.Status == "preparing" {
+			return true
+		}
+	}
+	return false
+}
+
 // StaticRenditionReady reports whether the named MP4 (e.g. highest.mp4) is
 // ready to download.
 func (a *Asset) StaticRenditionReady(name string) bool {

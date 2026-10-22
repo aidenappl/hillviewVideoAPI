@@ -237,6 +237,8 @@ func sendMuxError(w http.ResponseWriter, msg string, err error) {
 		responder.SendError(w, http.StatusServiceUnavailable, "Mux is not configured", err)
 	case errors.Is(err, muxvideo.ErrNotFound):
 		responder.SendError(w, http.StatusNotFound, msg, err)
+	case errors.Is(err, actions.ErrCaptionBusy):
+		responder.SendError(w, http.StatusConflict, "the previous caption change is still processing; try again in a moment", err)
 	default:
 		responder.SendError(w, http.StatusBadGateway, msg, err)
 	}
