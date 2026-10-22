@@ -25,6 +25,17 @@ var Mux = mux.New(env.MuxTokenID, env.MuxTokenSecret)
 // ErrNotMux means a video's url is not a Mux url.
 var ErrNotMux = errors.New("video is not a Mux video")
 
+// ErrCaptionBusy means Mux is still preparing the video's previous caption
+// track (a quick second save or regenerate); retry in a moment.
+var ErrCaptionBusy = errors.New("mux is still preparing the previous caption track")
+
+const (
+	// captionBusyWait bounds how long a caption edit waits for a preparing
+	// track before answering ErrCaptionBusy.
+	captionBusyWait = 15 * time.Second
+	captionBusyPoll = 2 * time.Second
+)
+
 // Caption statuses stored in video_captions.status.
 const (
 	CaptionReady      = "ready"
@@ -163,7 +174,22 @@ func RegenerateMuxCaption(videoID int, url string) error {
 	return Mux.GenerateCaptions(asset.ID, audio.ID)
 }
 
+// deleteMuxTextTracks removes the asset's English text tracks. Mux cannot
+// delete a track it is still preparing, so it waits up to captionBusyWait for
+// those to settle, then gives up with ErrCaptionBusy.
 func deleteMuxTextTracks(asset *mux.Asset) error {
+	deadline := time.Now().Add(captionBusyWait)
+	for asset.TextTrackPreparing(captionLang) {
+		if time.Now().After(deadline) {
+			return ErrCaptionBusy
+		}
+		time.Sleep(captionBusyPoll)
+		fresh, err := Mux.GetAsset(asset.ID)
+		if err != nil {
+			return err
+		}
+		asset = fresh
+	}
 	for _, t := range asset.Tracks {
 		if t.Type == "text" && t.LanguageCode == captionLang {
 			if err := Mux.DeleteTrack(asset.ID, t.ID); err != nil {

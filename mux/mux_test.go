@@ -177,6 +177,24 @@ func TestAssetHelpers(t *testing.T) {
 	}
 }
 
+func TestTextTrackPreparing(t *testing.T) {
+	a := Asset{Tracks: []Track{
+		{ID: "v", Type: "video"},
+		{ID: "es", Type: "text", LanguageCode: "es", Status: "preparing"},
+		{ID: "en", Type: "text", LanguageCode: "en", Status: "ready"},
+	}}
+	if a.TextTrackPreparing("en") {
+		t.Error("en ready reported as preparing")
+	}
+	if !a.TextTrackPreparing("es") {
+		t.Error("es preparing not reported")
+	}
+	a.Tracks[2].Status = "preparing"
+	if !a.TextTrackPreparing("en") {
+		t.Error("en preparing not reported")
+	}
+}
+
 func TestURLs(t *testing.T) {
 	d := 120
 	tests := []struct{ got, want string }{
