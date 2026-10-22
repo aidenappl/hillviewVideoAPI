@@ -11,15 +11,14 @@ import (
 )
 
 const (
-	// CONTENT_BUCKET is the S3 bucket behind https://content.hillview.tv.
-	CONTENT_BUCKET        = "content.hillview.tv"
-	CONTENT_BUCKET_REGION = "us-west-1"
-	CONTENT_HOST          = "content.hillview.tv"
+	// CONTENT_HOST is the public host of the content store (env.ContentS3Bucket
+	// on the Hillview OpenBucket instance).
+	CONTENT_HOST = "content.hillview.tv"
 	// MUX_STREAM_HOST serves Mux static renditions: /{playback_id}/highest.mp4.
 	MUX_STREAM_HOST = "stream.mux.com"
 )
 
-// Presigner signs a GET for an object in CONTENT_BUCKET with the given
+// Presigner signs a GET for an object in the content store with the given
 // Content-Disposition override.
 type Presigner func(key string, disposition string) (string, error)
 

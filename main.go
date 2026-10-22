@@ -121,7 +121,6 @@ func main() {
 
 	upload := r.PathPrefix("/upload").Subrouter()
 
-	upload.Handle("/video", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleVideoUpload))).Methods(http.MethodPost)
 	upload.Handle("/thumbnail", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleThumbnailUpload))).Methods(http.MethodPost)
 
 	upload.Handle("/mux/upload", middleware.AccessTokenMiddleware(http.HandlerFunc(routers.HandleMuxCreateUpload))).Methods(http.MethodPost)
