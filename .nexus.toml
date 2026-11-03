@@ -1,0 +1,4 @@
+# Nexus namespace for this repo: relay points agent sessions here.
+namespace = "hillview"
+# also = []            # extra namespaces to follow
+# tags = ["repo:hillviewVideoAPI"]  # brief filter (default repo:<dir name>)
