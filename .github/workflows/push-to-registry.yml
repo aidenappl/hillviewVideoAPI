@@ -3,6 +3,7 @@ name: Build and Push to Appleby Cloud Registry
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', '.nexus.toml']
 
 jobs:
   build-and-push:
